@@ -1,0 +1,303 @@
+import React, { useMemo, useState } from "react";
+import { Heart, MapPin, Film, IndianRupee, Sparkles, Users, Coffee } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { motion } from "framer-motion";
+
+const restaurantData = [
+    {
+        id: 1,
+        name: "Skyline Candlelight Bistro",
+        city: "Chennai",
+        cuisines: ["Italian", "Continental"],
+        ambience: ["Rooftop", "Romantic", "Candlelight"],
+        budgetMin: 1500,
+        budgetMax: 3000,
+        rating: 4.7,
+    },
+    {
+        id: 2,
+        name: "Corner House",
+        city: "Chennai",
+        cuisines: ["Italian", "Chinese", "Cafe"],
+        ambience: ["Cozy", "Romantic"],
+        budgetMin: 800,
+        budgetMax: 1800,
+        rating: 4.5,
+    },
+    {
+        id: 3,
+        name: "Moonlight Garden Dining",
+        city: "Chennai",
+        cuisines: ["South Indian", "Italian"],
+        ambience: ["Outdoor", "Nature", "Romantic"],
+        budgetMin: 1200,
+        budgetMax: 2500,
+        rating: 4.6,
+    },
+    {
+        id: 4,
+        name: "Velvet Rooftop Lounge",
+        city: "Bangalore",
+        cuisines: ["Italian", "Mexican"],
+        ambience: ["Luxury", "Rooftop", "Romantic"],
+        budgetMin: 1800,
+        budgetMax: 3500,
+        rating: 4.8,
+    },
+];
+
+const movieData = [
+    { id: 1, title: "Love in the Rain", genres: ["Romance", "Drama"], mode: "Theatre" },
+    { id: 2, title: "Laugh & Love", genres: ["Romance", "Comedy"], mode: "Theatre" },
+    { id: 3, title: "Midnight Hearts", genres: ["Romance", "Thriller"], mode: "OTT" },
+    { id: 4, title: "Forever Us", genres: ["Romance", "Comedy"], mode: "OTT" },
+];
+
+const defaultUsers = [
+    {
+        id: 1,
+        name: "Arjun",
+        city: "Chennai",
+        budgetMin: 1500,
+        budgetMax: 3000,
+        cuisine: "Italian",
+        ambience: "Rooftop",
+        movieGenre: "Romance",
+    },
+    {
+        id: 2,
+        name: "Priya",
+        city: "Chennai",
+        budgetMin: 1000,
+        budgetMax: 2500,
+        cuisine: "Italian",
+        ambience: "Romantic",
+        movieGenre: "Comedy",
+    },
+];
+
+const cities = ["Chennai", "Bangalore", "Hyderabad"];
+const cuisines = ["Italian", "Chinese", "South Indian", "Cafe", "Continental"];
+const ambiences = ["Romantic", "Rooftop", "Cozy", "Outdoor", "Nature", "Luxury", "Candlelight"];
+const genres = ["Romance", "Comedy", "Drama", "Thriller", "Action"];
+
+function scoreMatch(a, b) {
+    let score = 0;
+    if (a.city === b.city) score += 30;
+    if (a.cuisine === b.cuisine) score += 25;
+    if (a.movieGenre === b.movieGenre) score += 20;
+    if (a.ambience === b.ambience) score += 15;
+
+    const overlapMin = Math.max(a.budgetMin, b.budgetMin);
+    const overlapMax = Math.min(a.budgetMax, b.budgetMax);
+    if (overlapMin <= overlapMax) score += 10;
+
+    return Math.min(score, 100);
+}
+
+function getRecommendations(user1, user2) {
+    const sharedCity = user1.city === user2.city ? user1.city : null;
+    const sharedCuisine = user1.cuisine === user2.cuisine ? user1.cuisine : user1.cuisine;
+    const commonBudgetMin = Math.max(user1.budgetMin, user2.budgetMin);
+    const commonBudgetMax = Math.min(user1.budgetMax, user2.budgetMax);
+    const sharedGenres = [user1.movieGenre, user2.movieGenre];
+
+    const restaurants = restaurantData
+        .filter((r) => !sharedCity || r.city === sharedCity)
+        .filter((r) => r.cuisines.includes(sharedCuisine) || r.ambience.includes(user1.ambience) || r.ambience.includes(user2.ambience))
+        .filter((r) => r.budgetMin <= commonBudgetMax && r.budgetMax >= commonBudgetMin)
+        .sort((a, b) => b.rating - a.rating)
+        .slice(0, 3);
+
+    const movies = movieData
+        .filter((m) => sharedGenres.some((g) => m.genres.includes(g)))
+        .slice(0, 3);
+
+    return { restaurants, movies, commonBudgetMin, commonBudgetMax, sharedCity: sharedCity || user1.city };
+}
+
+function UserForm({ title, user, setUser }) {
+    return (
+        <Card className="rounded-2xl shadow-md border-0">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl">
+                    <Users className="h-5 w-5" /> {title}
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <Input
+                    placeholder="Name"
+                    value={user.name}
+                    onChange={(e) => setUser({ ...user, name: e.target.value })}
+                />
+
+                <Select value={user.city} onValueChange={(v) => setUser({ ...user, city: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select city" /></SelectTrigger>
+                    <SelectContent>
+                        {cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <Input
+                        type="number"
+                        placeholder="Budget min"
+                        value={user.budgetMin}
+                        onChange={(e) => setUser({ ...user, budgetMin: Number(e.target.value) })}
+                    />
+                    <Input
+                        type="number"
+                        placeholder="Budget max"
+                        value={user.budgetMax}
+                        onChange={(e) => setUser({ ...user, budgetMax: Number(e.target.value) })}
+                    />
+                </div>
+
+                <Select value={user.cuisine} onValueChange={(v) => setUser({ ...user, cuisine: v })}>
+                    <SelectTrigger><SelectValue placeholder="Favorite cuisine" /></SelectTrigger>
+                    <SelectContent>
+                        {cuisines.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+
+                <Select value={user.ambience} onValueChange={(v) => setUser({ ...user, ambience: v })}>
+                    <SelectTrigger><SelectValue placeholder="Preferred ambience" /></SelectTrigger>
+                    <SelectContent>
+                        {ambiences.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+
+                <Select value={user.movieGenre} onValueChange={(v) => setUser({ ...user, movieGenre: v })}>
+                    <SelectTrigger><SelectValue placeholder="Movie genre" /></SelectTrigger>
+                    <SelectContent>
+                        {genres.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </CardContent>
+        </Card>
+    );
+}
+
+export default function RomyntraDemoApp() {
+    const [user1, setUser1] = useState(defaultUsers[0]);
+    const [user2, setUser2] = useState(defaultUsers[1]);
+    const [showResult, setShowResult] = useState(false);
+
+    const matchScore = useMemo(() => scoreMatch(user1, user2), [user1, user2]);
+    const result = useMemo(() => getRecommendations(user1, user2), [user1, user2]);
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-white p-6">
+            <div className="max-w-7xl mx-auto space-y-6">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center"
+                >
+                    <h1 className="text-4xl font-bold tracking-tight flex items-center justify-center gap-2">
+                        <Heart className="h-8 w-8" /> Romyntra Demo
+                    </h1>
+                    <p className="text-gray-600 mt-2 text-base">
+                        Match couples and recommend romantic places and movie ideas.
+                    </p>
+                </motion.div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                    <UserForm title="User 1" user={user1} setUser={setUser1} />
+                    <UserForm title="User 2" user={user2} setUser={setUser2} />
+                </div>
+
+                <Card className="rounded-2xl shadow-md border-0">
+                    <CardContent className="p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                            <div className="text-sm text-gray-500">Compatibility Score</div>
+                            <div className="text-3xl font-bold">{matchScore}%</div>
+                            <div className="text-sm text-gray-600 mt-1">
+                                Based on city, budget, cuisine, ambience, and movie taste.
+                            </div>
+                        </div>
+                        <Button className="rounded-2xl" onClick={() => setShowResult(true)}>
+                            <Sparkles className="mr-2 h-4 w-4" /> Find Match & Plan Date
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                {showResult && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid lg:grid-cols-3 gap-6">
+                        <Card className="rounded-2xl shadow-md border-0 lg:col-span-1">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2"><Heart className="h-5 w-5" /> Match Summary</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3 text-sm">
+                                <div><span className="font-semibold">Couple:</span> {user1.name} & {user2.name}</div>
+                                <div><span className="font-semibold">City:</span> {result.sharedCity}</div>
+                                <div><span className="font-semibold">Budget Range:</span> ₹{result.commonBudgetMin} - ₹{result.commonBudgetMax}</div>
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                    <Badge variant="secondary">{user1.cuisine}</Badge>
+                                    <Badge variant="secondary">{user1.movieGenre}</Badge>
+                                    <Badge variant="secondary">{user2.movieGenre}</Badge>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="rounded-2xl shadow-md border-0 lg:col-span-1">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2"><Coffee className="h-5 w-5" /> Romantic Places</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {result.restaurants.length > 0 ? result.restaurants.map((r) => (
+                                    <div key={r.id} className="rounded-xl border p-4 space-y-2">
+                                        <div className="font-semibold">{r.name}</div>
+                                        <div className="flex items-center gap-2 text-sm text-gray-600"><MapPin className="h-4 w-4" /> {r.city}</div>
+                                        <div className="text-sm">Rating: {r.rating} ⭐</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {r.cuisines.map((c) => <Badge key={c} variant="outline">{c}</Badge>)}
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {r.ambience.map((a) => <Badge key={a} variant="secondary">{a}</Badge>)}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-sm"><IndianRupee className="h-4 w-4" /> ₹{r.budgetMin} - ₹{r.budgetMax}</div>
+                                    </div>
+                                )) : <div className="text-sm text-gray-600">No suitable places found for this combination.</div>}
+                            </CardContent>
+                        </Card>
+
+                        <Card className="rounded-2xl shadow-md border-0 lg:col-span-1">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2"><Film className="h-5 w-5" /> Movie Ideas</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {result.movies.length > 0 ? result.movies.map((m) => (
+                                    <div key={m.id} className="rounded-xl border p-4 space-y-2">
+                                        <div className="font-semibold">{m.title}</div>
+                                        <div className="text-sm text-gray-600">Mode: {m.mode}</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {m.genres.map((g) => <Badge key={g} variant="outline">{g}</Badge>)}
+                                        </div>
+                                    </div>
+                                )) : <div className="text-sm text-gray-600">No movie suggestions found.</div>}
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                )}
+
+                {showResult && (
+                    <Card className="rounded-2xl shadow-md border-0">
+                        <CardHeader>
+                            <CardTitle>Date Plan Demo</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                            <div>6:00 PM – Dinner at <span className="font-semibold">{result.restaurants[0]?.name || "a romantic place"}</span></div>
+                            <div>8:30 PM – Watch <span className="font-semibold">{result.movies[0]?.title || "a movie"}</span></div>
+                            <div>10:30 PM – Dessert and couple time</div>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+        </div>
+    );
+}

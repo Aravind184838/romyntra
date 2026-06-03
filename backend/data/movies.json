@@ -1,0 +1,12 @@
+[
+  { "id": 1, "title": "Love in the Rain", "genres": ["Romance", "Drama"], "mode": "Theatre", "rating": 8.2, "year": 2024, "poster": "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=300" },
+  { "id": 2, "title": "Laugh & Love", "genres": ["Romance", "Comedy"], "mode": "Theatre", "rating": 7.8, "year": 2024, "poster": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=300" },
+  { "id": 3, "title": "Midnight Hearts", "genres": ["Romance", "Thriller"], "mode": "OTT", "rating": 8.5, "year": 2023, "poster": "https://images.unsplash.com/photo-1616530940355-351fabd9524b?w=300" },
+  { "id": 4, "title": "Forever Us", "genres": ["Romance", "Comedy"], "mode": "OTT", "rating": 7.5, "year": 2024, "poster": "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=300" },
+  { "id": 5, "title": "Starlit Adventure", "genres": ["Adventure", "Romance"], "mode": "Theatre", "rating": 8.0, "year": 2024, "poster": "https://images.unsplash.com/photo-1518929458119-e5bf444c30f4?w=300" },
+  { "id": 6, "title": "The Quiet Storm", "genres": ["Drama", "Romance"], "mode": "OTT", "rating": 8.7, "year": 2023, "poster": "https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=300" },
+  { "id": 7, "title": "Comedy of Errors", "genres": ["Comedy", "Romance"], "mode": "Theatre", "rating": 7.2, "year": 2024, "poster": "https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=300" },
+  { "id": 8, "title": "Edge of Tomorrow", "genres": ["Action", "Sci-Fi"], "mode": "OTT", "rating": 8.1, "year": 2023, "poster": "https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=300" },
+  { "id": 9, "title": "Crimson Petals", "genres": ["Romance", "Drama"], "mode": "Theatre", "rating": 8.4, "year": 2024, "poster": "https://images.unsplash.com/photo-1560109947-543149eceb16?w=300" },
+  { "id": 10, "title": "The Last Waltz", "genres": ["Romance", "Musical"], "mode": "Theatre", "rating": 8.6, "year": 2024, "poster": "https://images.unsplash.com/photo-1507924538820-ede94a04019d?w=300" }
+]
