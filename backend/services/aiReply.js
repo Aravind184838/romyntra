@@ -179,7 +179,8 @@ export async function generateAndSendAiReply(io, matchId, senderId) {
       content: encryptedContent,
       encrypted,
       messageType: 'text',
-      deliveredAt: new Date()
+      deliveredAt: new Date(),
+      isAiReply: true
     });
 
     await message.populate('sender', 'name photos');

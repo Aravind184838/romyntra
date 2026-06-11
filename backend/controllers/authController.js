@@ -7,11 +7,9 @@ import admin from '../config/firebase.js';
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const isDev = process.env.NODE_ENV !== 'production';
-const DEV_OTP = process.env.DEV_OTP || '123456';
 
 const isValidOtp = (user, otp) => {
   const code = otp?.toString().trim();
-  if (isDev && code === DEV_OTP) return true;
   return user.otp?.code === code;
 };
 
@@ -77,7 +75,7 @@ export const register = async (req, res, next) => {
     // In production: send OTP via SMS/email. For now, return in response (dev mode)
     const token = generateToken(user._id);
 
-    console.log(`📱 [DEV MODE] OTP for ${email}: ${otp}`); // Remove in production
+    console.log(`📱 [DEV MODE] OTP sent to ${email}`);
 
     res.status(201).json({
       success: true,
@@ -93,9 +91,7 @@ export const register = async (req, res, next) => {
         role: user.role,
         isVerified: user.isVerified,
         isProfileComplete: user.isProfileComplete
-      },
-      // DEV ONLY — remove in production
-      devOtp: isDev ? otp : undefined
+      }
     });
   } catch (error) {
     next(error);
@@ -112,15 +108,33 @@ export const login = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please provide email and password' });
     }
 
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email }).select('+password +loginAttempts +lockUntil');
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
+    // Check account lockout
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      const remaining = Math.ceil((user.lockUntil - new Date()) / 1000 / 60);
+      return res.status(429).json({ success: false, message: `Account locked. Try again in ${remaining} minute(s).` });
+    }
+
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
+      user.loginAttempts = (user.loginAttempts || 0) + 1;
+      if (user.loginAttempts >= 5) {
+        user.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+        user.loginAttempts = 0;
+        await user.save({ validateBeforeSave: false });
+        return res.status(429).json({ success: false, message: 'Account locked for 15 minutes due to too many failed attempts.' });
+      }
+      await user.save({ validateBeforeSave: false });
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
+
+    // Reset login attempts on success
+    user.loginAttempts = 0;
+    user.lockUntil = null;
 
     if (user.isRestricted) {
       return res.status(403).json({ success: false, message: 'Your account has been restricted. Contact support.' });
@@ -167,7 +181,7 @@ export const sendOTP = async (req, res, next) => {
     const user = await User.findOne(email ? { email } : { phone });
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(200).json({ success: true, message: 'If the account exists, an OTP has been sent.' });
     }
 
     const otp = generateOTP();
@@ -177,12 +191,12 @@ export const sendOTP = async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
 
     const target = email || phone;
-    console.log(`📱 [DEV MODE] OTP for ${target}: ${otp}`);
+    const maskedTarget = target?.replace(/(?<=.{3}).(?=.*@)/g, '*');
+    console.log(`📱 [DEV MODE] OTP sent to ${maskedTarget || target}`);
 
     res.status(200).json({
       success: true,
-      message: 'OTP sent successfully!',
-      devOtp: isDev ? otp : undefined
+      message: 'If the account exists, an OTP has been sent.'
     });
   } catch (error) {
     next(error);

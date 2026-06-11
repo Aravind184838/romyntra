@@ -3,6 +3,8 @@ import Swipe from '../models/Swipe.js';
 import Match from '../models/Match.js';
 import { scoreCompatibility, generateRecommendations } from '../services/recommendationEngine.js';
 
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const GENDER_MAP = {
   Man: 'male',
   Woman: 'female',
@@ -139,12 +141,26 @@ export const updateProfile = async (req, res, next) => {
 };
 
 // ─── @route POST /api/users/photos ───────────────────────────────────────────
+const isValidPhotoUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && /\.(jpg|jpeg|png|gif|webp|bmp)(\?.*)?$/i.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+};
+
 export const uploadPhoto = async (req, res, next) => {
   try {
     const { url, isPrimary } = req.body;
 
     if (!url) {
       return res.status(400).json({ success: false, message: 'Photo URL is required' });
+    }
+
+    if (!isValidPhotoUrl(url)) {
+      return res.status(400).json({ success: false, message: 'Invalid photo URL. Must be an HTTPS image URL.' });
     }
 
     const user = await User.findById(req.user._id);
@@ -225,10 +241,26 @@ export const discoverProfiles = async (req, res, next) => {
 };
 
 // ─── @route PUT /api/users/public-key ─────────────────────────────────────────
+const isValidRsaJwk = (jwk) => {
+  try {
+    const parsed = typeof jwk === 'string' ? JSON.parse(jwk) : jwk;
+    return parsed &&
+      parsed.kty === 'RSA' &&
+      typeof parsed.n === 'string' &&
+      parsed.n.length >= 256 &&
+      typeof parsed.e === 'string';
+  } catch {
+    return false;
+  }
+};
+
 export const uploadPublicKey = async (req, res, next) => {
   try {
     const { publicKey } = req.body;
     if (!publicKey) return res.status(400).json({ success: false, message: 'publicKey is required' });
+    if (!isValidRsaJwk(publicKey)) {
+      return res.status(400).json({ success: false, message: 'Invalid RSA public key format. Must be a valid JWK.' });
+    }
     await User.findByIdAndUpdate(req.user._id, { publicKey });
     res.status(200).json({ success: true, message: 'Public key saved' });
   } catch (error) {
@@ -252,11 +284,30 @@ export const getPublicKey = async (req, res, next) => {
 export const getUserById = async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id)
-      .select('-password -otp -swipedRight -swipedLeft -superLiked');
+      .select('-password -otp -swipedRight -swipedLeft -superLiked -publicKey');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-    res.status(200).json({ success: true, user });
+
+    const isSelf = req.user._id.toString() === user._id.toString();
+    const hasMatch = await Match.findOne({ users: { $all: [req.user._id, user._id] }, status: 'active' });
+
+    if (isSelf || hasMatch) {
+      return res.status(200).json({ success: true, user });
+    }
+
+    // Limited public profile for non-matched users
+    const publicProfile = {
+      _id: user._id,
+      name: user.name,
+      age: user.age,
+      gender: user.gender,
+      photos: user.photos,
+      bio: user.bio,
+      interests: user.interests,
+      location: user.location
+    };
+    res.status(200).json({ success: true, user: publicProfile });
   } catch (error) {
     next(error);
   }

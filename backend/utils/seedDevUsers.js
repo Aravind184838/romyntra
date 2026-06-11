@@ -331,11 +331,7 @@ export const seedDevUsersIfEmpty = async () => {
     }
   }
 
-  console.log('🌱 Demo users seeded/verified. Logins:');
-  DEMO_CREDENTIALS.forEach(({ email, password, label }) => {
-    console.log(`   ${label}: ${email} / ${password}`);
-  });
-  console.log(`   👑 Admin: ${process.env.ADMIN_EMAIL || 'admin@romyntra.com'} / Admin@123`);
+  console.log('🌱 Demo users seeded/verified.');
 };
 
 export default seedDevUsersIfEmpty;

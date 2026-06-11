@@ -24,7 +24,13 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters'],
+    minlength: [8, 'Password must be at least 8 characters'],
+    validate: {
+      validator: function (v) {
+        return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/.test(v);
+      },
+      message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+    },
     select: false
   },
   age: {
@@ -90,6 +96,8 @@ const userSchema = new mongoose.Schema({
   },
   lastActive: { type: Date, default: Date.now },
   publicKey: { type: String, default: '' },
+  loginAttempts: { type: Number, default: 0, select: false },
+  lockUntil: { type: Date, default: null, select: false },
   swipedRight: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   swipedLeft: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   superLiked: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]

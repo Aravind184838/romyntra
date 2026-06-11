@@ -22,7 +22,8 @@ const messageSchema = new mongoose.Schema({
     default: 'text'
   },
   readAt: { type: Date, default: null },
-  deliveredAt: { type: Date, default: null }
+  deliveredAt: { type: Date, default: null },
+  isAiReply: { type: Boolean, default: false }
 }, { timestamps: true });
 
 messageSchema.index({ match: 1, createdAt: -1 });
