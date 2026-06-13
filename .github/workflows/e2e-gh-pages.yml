@@ -1,16 +1,20 @@
-name: E2E Tests
+name: Deploy Test Report to GitHub Pages
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+
+# Need these permissions to deploy to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  test:
+  test_and_deploy:
     runs-on: ubuntu-latest
     
     services:
@@ -70,12 +74,22 @@ jobs:
       working-directory: ./selenium_tests
       env:
         CI: true
+      # Notice we generate it as index.html so it serves cleanly on GitHub pages
       run: |
-        pytest -v --html=reports/test_report.html
+        mkdir -p gh-pages
+        pytest -v --html=gh-pages/index.html
         
-    - name: Upload Test Report
+    - name: Setup Pages
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/configure-pages@v5
+
+    - name: Upload artifact
+      if: always()
+      uses: actions/upload-pages-artifact@v3
       with:
-        name: test-report
-        path: selenium_tests/reports/
+        path: './selenium_tests/gh-pages'
+
+    - name: Deploy to GitHub Pages
+      if: always()
+      id: deployment
+      uses: actions/deploy-pages@v4
