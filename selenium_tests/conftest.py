@@ -22,13 +22,15 @@ TEST_USER = {
 }
 
 
+import os
+
 # ── Driver fixture ──────────────────────────────────────────────────────────
 @pytest.fixture(scope="session")
 def driver():
     """Single Chrome session for the entire test run."""
     options = Options()
-    # Comment the next line out to watch the browser:
-    # options.add_argument("--headless=new")
+    if os.environ.get("CI") == "true":
+        options.add_argument("--headless=new")
     options.add_argument("--window-size=1280,900")
     options.add_argument("--disable-infobars")
     options.add_argument("--disable-extensions")
