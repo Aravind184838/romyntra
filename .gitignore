@@ -7,3 +7,7 @@ Thumbs.db
 uploads/*
 !uploads/.gitkeep
 backend/data/*.csv
+__pycache__/
+*.pyc
+reports/
+*.txt

@@ -65,7 +65,7 @@ export default function ProfileSetup() {
       toast.success('Profile ready! 💘');
       navigate('/discover', { replace:true });
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Could not save profile');
+      toast.error(err.message || 'Could not save profile');
     } finally {
       setLoading(false);
     }

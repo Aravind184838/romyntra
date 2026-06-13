@@ -24,9 +24,8 @@ import adminRoutes from './routes/admin.js';
 import reportRoutes from './routes/reports.js';
 import { setIo } from './controllers/chatController.js';
 
-dotenv.config();
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 const app = express();
 const httpServer = createServer(app);
 
@@ -41,7 +40,14 @@ initSocket(io);
 setIo(io);
 
 // ── Security Headers ─────────────────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      'img-src': ["'self'", 'data:', 'https://images.unsplash.com', 'https://ui-avatars.com'],
+    },
+  },
+}));
 
 // ── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({
@@ -53,9 +59,11 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Rate limiting
+const isTestOrDisabled = process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true';
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
-  max: 100,
+  max: isTestOrDisabled ? 100000 : 100,
   message: { success: false, message: 'Too many requests, please try again later.' }
 });
 app.use('/api/', limiter);
@@ -63,32 +71,32 @@ app.use('/api/', limiter);
 // Auth routes — stricter rate limit
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: isTestOrDisabled ? 100000 : 20,
   message: { success: false, message: 'Too many login attempts, please try again later.' }
 });
 
 // Granular rate limiters
 const discoverLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: isTestOrDisabled ? 100000 : 30,
   message: { success: false, message: 'Too many requests. Slow down.' }
 });
 
 const swipeLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 60,
+  max: isTestOrDisabled ? 100000 : 60,
   message: { success: false, message: 'Too many swipes. Slow down.' }
 });
 
 const messageLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: isTestOrDisabled ? 100000 : 30,
   message: { success: false, message: 'Too many messages. Slow down.' }
 });
 
 const exportLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: isTestOrDisabled ? 100000 : 10,
   message: { success: false, message: 'Too many export requests. Slow down.' }
 });
 

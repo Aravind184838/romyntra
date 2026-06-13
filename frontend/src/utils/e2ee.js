@@ -35,7 +35,9 @@ export async function generateKeyPair() {
 
 export async function getPublicKeyJwk() {
   const pair = await getKeyPair();
-  return pair ? JSON.stringify(pair.publicKey) : null;
+  if (!pair) return null;
+  const pubJwk = await crypto.subtle.exportKey('jwk', pair.publicKey);
+  return JSON.stringify(pubJwk);
 }
 
 export async function encryptMessage(plaintext, recipientPublicKeyJwk) {

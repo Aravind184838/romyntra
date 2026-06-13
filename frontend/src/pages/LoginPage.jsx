@@ -38,11 +38,8 @@ export default function LoginPage() {
         toast.success(`Welcome back, ${firstName}! 💘`);
         navigate(data.user?.isProfileComplete ? '/discover' : '/setup-profile', { replace: true });
       } else {
-        const data = await sendOtp({ phone: form.phone.trim() });
+        await sendOtp({ phone: form.phone.trim() });
         toast.success('OTP sent! 📱');
-        if (data.devOtp) {
-          toast(`Dev OTP: ${data.devOtp}`, { icon: '🔑', duration: 12000 });
-        }
         navigate('/verify-otp', { state: { phone: form.phone.trim(), isLogin: true }, replace: true });
       }
     } catch (err) {
@@ -185,19 +182,21 @@ export default function LoginPage() {
             Don't have an account?{' '}
             <Link to="/signup" style={{ color:'#fb7185', fontWeight:600 }}>Sign up</Link>
           </div>
-          {method === 'email' && (
-            <div style={{ marginTop:16, textAlign:'center', color:'rgba(255,255,255,0.35)', fontSize:'0.75rem', lineHeight:1.7 }}>
-              Demo accounts (password: <strong style={{color:'rgba(255,255,255,0.55)'}}>Demo@123</strong>):
-              <div style={{display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'4px 12px', marginTop:4}}>
-                <span style={{color:'rgba(255,255,255,0.55)'}}>priya@demo.com</span>
-                <span style={{color:'rgba(255,255,255,0.55)'}}>aarav@demo.com</span>
-                <span style={{color:'rgba(255,255,255,0.55)'}}>rahul@demo.com</span>
-                <span style={{color:'rgba(255,255,255,0.55)'}}>anjali@demo.com</span>
-                <span style={{color:'rgba(255,255,255,0.55)'}}>sneha@demo.com</span>
-              </div>
-            </div>
-          )}
+
         </div>
+
+        {method === 'email' && (
+          <div style={{ marginTop:16, textAlign:'center', color:'rgba(255,255,255,0.35)', fontSize:'0.75rem', lineHeight:1.7 }}>
+            Demo accounts (password: <strong style={{color:'rgba(255,255,255,0.55)'}}>Demo@123</strong>):
+            <div style={{display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'4px 12px', marginTop:4}}>
+              <span style={{color:'rgba(255,255,255,0.55)'}}>priya@demo.com</span>
+              <span style={{color:'rgba(255,255,255,0.55)'}}>aarav@demo.com</span>
+              <span style={{color:'rgba(255,255,255,0.55)'}}>rahul@demo.com</span>
+              <span style={{color:'rgba(255,255,255,0.55)'}}>anjali@demo.com</span>
+              <span style={{color:'rgba(255,255,255,0.55)'}}>sneha@demo.com</span>
+            </div>
+          </div>
+        )}
 
         {/* Social logins (visual only) */}
         <div style={{ marginTop:24, textAlign:'center' }}>

@@ -62,7 +62,7 @@ export const getAllUsers = async (req, res, next) => {
 
     const total = await User.countDocuments(query);
     const users = await User.find(query)
-      .select('-password -otp -swipedRight -swipedLeft -superLiked')
+      .select('-password -swipedRight -swipedLeft -superLiked')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);

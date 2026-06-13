@@ -2,6 +2,10 @@ import User from '../models/User.js';
 import Swipe from '../models/Swipe.js';
 import Match from '../models/Match.js';
 import { scoreCompatibility, generateRecommendations } from '../services/recommendationEngine.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -44,7 +48,14 @@ const fileToDataUrl = (file) =>
 export const getProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);
-    res.status(200).json({ success: true, user });
+    const matchCount = await Match.countDocuments({ users: req.user._id, status: 'active' });
+    const likesGiven = user.swipedRight?.length || 0;
+    const profileViews = user.profileViews?.length || 0;
+    const userObj = user.toObject();
+    userObj.matchCount = matchCount;
+    userObj.likesGiven = likesGiven;
+    userObj.profileViews = profileViews;
+    res.status(200).json({ success: true, user: userObj });
   } catch (error) {
     next(error);
   }
@@ -223,15 +234,36 @@ export const discoverProfiles = async (req, res, next) => {
       genderFilter.gender = currentUser.lookingFor;
     }
 
+    // Optional filters from query params
+    const { minAge, maxAge, interests, location } = req.query;
+    let ageFilter = { $gte: 18 };
+    if (minAge) ageFilter.$gte = parseInt(minAge);
+    if (maxAge) ageFilter.$lte = parseInt(maxAge);
+
+    let interestsFilter = {};
+    if (interests) {
+      const interestList = interests.split(',').map(s => s.trim()).filter(Boolean);
+      if (interestList.length > 0) {
+        interestsFilter.interests = { $in: interestList };
+      }
+    }
+
+    let locationFilter = {};
+    if (location) {
+      locationFilter['location.city'] = { $regex: new RegExp(escapeRegex(location), 'i') };
+    }
+
     const profiles = await User.find({
       _id: { $nin: [...excludeIds, ...passedIds] },
       isRestricted: false,
       isProfileComplete: true,
-      age: { $gte: 18 },
-      ...genderFilter
+      age: ageFilter,
+      ...genderFilter,
+      ...interestsFilter,
+      ...locationFilter
     })
       .select('-swipedRight -swipedLeft -superLiked')
-      .limit(20)
+      .limit(50)
       .sort({ lastActive: -1 });
 
     res.status(200).json({ success: true, count: profiles.length, users: profiles });
@@ -280,16 +312,78 @@ export const getPublicKey = async (req, res, next) => {
   }
 };
 
+// ─── @route GET /api/users/notification-preferences ──────────────────────────
+export const getNotificationPreferences = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id).select('notificationPreferences');
+    res.status(200).json({ success: true, preferences: user.notificationPreferences });
+  } catch (error) { next(error); }
+};
+
+// ─── @route PUT /api/users/notification-preferences ──────────────────────────
+export const updateNotificationPreferences = async (req, res, next) => {
+  try {
+    const { preferences } = req.body;
+    await User.updateOne({ _id: req.user._id }, { $set: { notificationPreferences: preferences } });
+    const updated = await User.findById(req.user._id).select('-password -swipedRight -swipedLeft -superLiked');
+    res.status(200).json({ success: true, message: 'Preferences saved!', user: updated });
+  } catch (error) { next(error); }
+};
+
+// ─── @route GET /api/users/privacy-settings ──────────────────────────────────
+export const getPrivacySettings = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id).select('privacySettings');
+    res.status(200).json({ success: true, settings: user.privacySettings });
+  } catch (error) { next(error); }
+};
+
+// ─── @route PUT /api/users/privacy-settings ──────────────────────────────────
+export const updatePrivacySettings = async (req, res, next) => {
+  try {
+    const { settings } = req.body;
+    await User.updateOne({ _id: req.user._id }, { $set: { privacySettings: settings } });
+    const updated = await User.findById(req.user._id).select('-password -swipedRight -swipedLeft -superLiked');
+    res.status(200).json({ success: true, message: 'Privacy settings saved!', user: updated });
+  } catch (error) { next(error); }
+};
+
+// ─── @route POST /api/users/support-ticket ───────────────────────────────────
+export const createSupportTicket = async (req, res, next) => {
+  try {
+    const { subject, message } = req.body;
+    if (!subject?.trim() || !message?.trim()) {
+      return res.status(400).json({ success: false, message: 'Subject and message are required' });
+    }
+    const user = await User.findById(req.user._id).select('name email');
+    fs.appendFileSync(path.join(__dirname, '..', 'support_tickets.log'),
+      `[${new Date().toISOString()}] ${user.name} (${user.email}): ${subject.trim()} - ${message.trim()}\n`);
+    res.status(200).json({ success: true, message: 'Support ticket submitted! We\'ll get back to you soon.' });
+  } catch (error) { next(error); }
+};
+
 // ─── @route GET /api/users/:id ────────────────────────────────────────────────
 export const getUserById = async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id)
-      .select('-password -otp -swipedRight -swipedLeft -superLiked -publicKey');
+      .select('-password -swipedRight -swipedLeft -superLiked -publicKey');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     const isSelf = req.user._id.toString() === user._id.toString();
+
+    // Record profile view (not for self)
+    if (!isSelf) {
+      const alreadyViewed = user.profileViews?.some(v => v.viewedBy?.toString() === req.user._id.toString());
+      if (!alreadyViewed) {
+        await User.updateOne(
+          { _id: user._id },
+          { $push: { profileViews: { viewedBy: req.user._id, viewedAt: new Date() } } }
+        );
+      }
+    }
+
     const hasMatch = await Match.findOne({ users: { $all: [req.user._id, user._id] }, status: 'active' });
 
     if (isSelf || hasMatch) {

@@ -27,10 +27,14 @@ export default function SignupPage() {
       else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = 'Invalid email';
       if (!form.password)      e.password = 'Password is required';
       else if (form.password.length < 8) e.password = 'Min 8 characters';
+      else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_])/.test(form.password))
+        e.password = 'Need uppercase, lowercase, number & special char';
       if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match';
     }
     if (step === 1) {
       if (!form.phone)       e.phone = 'Phone is required';
+      else if (!/^\+?[\d\s-]{10,15}$/.test(form.phone.trim()))
+        e.phone = 'Enter valid phone (10-15 digits, optional +)';
       if (!form.dateOfBirth) e.dateOfBirth = 'Date of birth is required';
       else {
         const age = Math.floor((Date.now() - new Date(form.dateOfBirth)) / (365.25*24*60*60*1000));
@@ -58,18 +62,15 @@ export default function SignupPage() {
         gender: 'not-specified',
       });
 
+      const devOtp = data?.devOtp;
       toast.success('Account created! Verify your phone with OTP.');
-      if (data.devOtp) {
-        toast(`Dev OTP: ${data.devOtp}`, { icon: '🔑', duration: 12000 });
-      }
       navigate('/verify-otp', {
-        state: { email: form.email, phone: form.phone.trim() },
+        state: { email: form.email, phone: form.phone.trim(), devOtp },
         replace: true,
       });
     } catch (err) {
       console.error('Signup Error:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Signup failed';
-      toast.error(errorMessage);
+      toast.error(err.message || 'Signup failed');
     } finally {
       setLoading(false);
     }

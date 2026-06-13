@@ -1,0 +1,3 @@
+[Supabase OTP] Error sending confirmation OTP to provider: The 'To' number +913879109213 is not a valid phone number. More information: https://www.twilio.com/docs/errors/21211
+[Supabase Verify] Token has expired or is invalid
+[Supabase Verify] Token has expired or is invalid

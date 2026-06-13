@@ -55,7 +55,7 @@ export const sendMessage = async (req, res, next) => {
       match: matchId,
       sender: req.user._id,
       content: content.trim(),
-      encrypted: true,
+      encrypted: !!req.body.encrypted,
       messageType: messageType || 'text',
       deliveredAt: new Date()
     });
@@ -64,7 +64,8 @@ export const sendMessage = async (req, res, next) => {
     match.lastMessage = {
       content: content.trim().substring(0, 50),
       sentAt: new Date(),
-      sentBy: req.user._id
+      sentBy: req.user._id,
+      encrypted: !!req.body.encrypted
     };
     await match.save();
 
@@ -114,6 +115,31 @@ export const markAsRead = async (req, res, next) => {
       { readAt: new Date() }
     );
     res.status(200).json({ success: true, message: 'Messages marked as read' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── @route GET /api/chat ─────────────────────────────────────────────────────
+export const getConversations = async (req, res, next) => {
+  try {
+    const matches = await Match.find({ users: req.user._id, status: 'active' })
+      .populate('users', 'name photos')
+      .sort({ 'lastMessage.sentAt': -1 });
+
+    const conversations = matches.map(m => {
+      const otherUser = m.users.find(u => u._id.toString() !== req.user._id.toString());
+      return {
+        matchId: m._id,
+        user: otherUser ? { _id: otherUser._id, name: otherUser.name, photos: otherUser.photos } : null,
+        lastMessage: m.lastMessage || null,
+        aiEnabled: m.aiEnabled,
+        matchScore: m.matchScore,
+        unreadCount: 0
+      };
+    });
+
+    res.status(200).json({ success: true, conversations });
   } catch (error) {
     next(error);
   }

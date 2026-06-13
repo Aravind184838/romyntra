@@ -1,0 +1,11 @@
+◇ injected env (12) from backend\.env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from backend\.env // tip: ⌁ auth for agents [www.vestauth.com]
+✅ MongoDB Connected: localhost
+🌱 Demo users seeded/verified.
+
+💘 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💘  Romyntra API running on port 5000
+💘  Environment: development
+💘  Health: http://localhost:5000/api/health
+💘 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+

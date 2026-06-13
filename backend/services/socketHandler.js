@@ -55,7 +55,7 @@ export const initSocket = (io) => {
     });
 
     // Send message — use socket.userId, never trust client-supplied senderId
-    socket.on('send_message', async ({ matchId, content, messageType }) => {
+    socket.on('send_message', async ({ matchId, content, messageType, encrypted }) => {
       try {
         const userId = socket.userId;
         if (!(await isMatchParticipant(matchId, userId))) {
@@ -66,7 +66,7 @@ export const initSocket = (io) => {
           match: matchId,
           sender: userId,
           content,
-          encrypted: true,
+          encrypted: !!encrypted,
           messageType: messageType || 'text',
           deliveredAt: new Date()
         });
@@ -77,7 +77,8 @@ export const initSocket = (io) => {
           lastMessage: {
             content: content.substring(0, 50),
             sentAt: new Date(),
-            sentBy: userId
+            sentBy: userId,
+            encrypted: !!encrypted
           }
         });
 

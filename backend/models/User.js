@@ -96,11 +96,45 @@ const userSchema = new mongoose.Schema({
   },
   lastActive: { type: Date, default: Date.now },
   publicKey: { type: String, default: '' },
+  notificationPreferences: {
+    push: {
+      matches: { type: Boolean, default: true },
+      messages: { type: Boolean, default: true },
+      likes: { type: Boolean, default: true },
+      superlikes: { type: Boolean, default: true },
+      recommendations: { type: Boolean, default: false },
+      promotions: { type: Boolean, default: false },
+    },
+    email: {
+      matches: { type: Boolean, default: true },
+      messages: { type: Boolean, default: false },
+      weeklyDigest: { type: Boolean, default: true },
+      promotions: { type: Boolean, default: false },
+    },
+    sms: {
+      matches: { type: Boolean, default: false },
+      messages: { type: Boolean, default: false },
+      security: { type: Boolean, default: true },
+    },
+  },
+  privacySettings: {
+    showOnlineStatus: { type: Boolean, default: true },
+    showLocation: { type: Boolean, default: true },
+    showAge: { type: Boolean, default: true },
+    allowPhotosDownload: { type: Boolean, default: false },
+    blockScreenshots: { type: Boolean, default: false },
+    allowMessagesFrom: { type: String, default: 'everyone' },
+    hideProfileFrom: { type: String, default: 'none' },
+  },
   loginAttempts: { type: Number, default: 0, select: false },
   lockUntil: { type: Date, default: null, select: false },
   swipedRight: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   swipedLeft: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  superLiked: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+  superLiked: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  profileViews: [{
+    viewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    viewedAt: { type: Date, default: Date.now }
+  }]
 }, {
   timestamps: true
 });

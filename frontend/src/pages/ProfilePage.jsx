@@ -160,10 +160,10 @@ export default function ProfilePage() {
         <div style={{ background:'#fff', borderRadius:20, overflow:'hidden', boxShadow:'var(--shadow-md)', marginBottom:14 }}>
           {[
             { icon:'🍽️', label:'Date Preferences', action:()=>navigate('/preferences') },
-            { icon:'🔔', label:'Notifications', action:()=>toast('Coming soon!') },
-            { icon:'🔒', label:'Privacy Settings', action:()=>toast('Coming soon!') },
-            { icon:'⚙️', label:'Account Settings', action:()=>toast('Coming soon!') },
-            { icon:'💌', label:'Help & Support', action:()=>toast('Coming soon!') },
+            { icon:'🔔', label:'Notifications', action:()=>navigate('/notifications') },
+            { icon:'🔒', label:'Privacy Settings', action:()=>navigate('/privacy') },
+            { icon:'⚙️', label:'Account Settings', action:()=>navigate('/account') },
+            { icon:'💌', label:'Help & Support', action:()=>navigate('/help') },
           ].map((item, i, arr) => (
             <button key={item.label} onClick={item.action}
               style={{ width:'100%', display:'flex', alignItems:'center', gap:14, padding:'16px 20px',

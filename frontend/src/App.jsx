@@ -13,6 +13,10 @@ import ChatPage            from './pages/ChatPage';
 import RecommendationsPage from './pages/RecommendationsPage';
 import PreferencesPage    from './pages/PreferencesPage';
 import ProfilePage         from './pages/ProfilePage';
+import NotificationsPage   from './pages/NotificationsPage';
+import PrivacySettingsPage from './pages/PrivacySettingsPage';
+import AccountSettingsPage from './pages/AccountSettingsPage';
+import HelpSupportPage     from './pages/HelpSupportPage';
 import AdminDashboard      from './pages/admin/AdminDashboard';
 import UserManagement      from './pages/admin/UserManagement';
 import ReportsPanel        from './pages/admin/ReportsPanel';
@@ -36,6 +40,10 @@ export default function App() {
         <Route path="/recommendations/:matchId" element={<ProtectedRoute><RecommendationsPage /></ProtectedRoute>} />
         <Route path="/profile"           element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="/preferences"       element={<ProtectedRoute><PreferencesPage /></ProtectedRoute>} />
+        <Route path="/notifications"     element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+        <Route path="/privacy"           element={<ProtectedRoute><PrivacySettingsPage /></ProtectedRoute>} />
+        <Route path="/account"           element={<ProtectedRoute><AccountSettingsPage /></ProtectedRoute>} />
+        <Route path="/help"              element={<ProtectedRoute><HelpSupportPage /></ProtectedRoute>} />
 
         {/* Admin */}
         <Route path="/admin"         element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />

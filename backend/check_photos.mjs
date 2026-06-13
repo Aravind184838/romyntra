@@ -1,0 +1,10 @@
+import mongoose from 'mongoose';
+await mongoose.connect('mongodb://localhost:27017/romyntra');
+const db = mongoose.connection.db;
+const withPhotos = await db.collection('users').countDocuments({ role: 'user', photos: { $ne: [] } });
+const noPhotos = await db.collection('users').countDocuments({ role: 'user', photos: { $size: 0 } });
+console.log('Users with photos:', withPhotos);
+console.log('Users without photos:', noPhotos);
+const samples = await db.collection('users').find({ role: 'user', 'photos.0': { $exists: true } }).project({ name: 1, 'photos.url': 1 }).limit(3).toArray();
+samples.forEach(s => console.log(s.name, '->', s.photos?.[0]?.url?.slice(0, 70)));
+process.exit();

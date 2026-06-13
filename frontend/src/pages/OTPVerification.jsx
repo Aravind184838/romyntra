@@ -8,7 +8,8 @@ export default function OTPVerification() {
   const navigate = useNavigate();
   const location = useLocation();
   const { verifyOtp, sendOtp } = useAuth();
-  const { email, phone, isLogin } = location.state || {};
+  const { email, phone, isLogin, devOtp: initDevOtp } = location.state || {};
+  const [devOtp, setDevOtp] = useState(initDevOtp);
 
   const [otp, setOtp]         = useState(['','','','','','']);
   const [loading, setLoading] = useState(false);
@@ -66,7 +67,7 @@ export default function OTPVerification() {
       navigate(data.user.isProfileComplete ? '/discover' : '/setup-profile', { replace: true });
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.message || err.message || 'Verification failed');
+      toast.error(err.message || 'Verification failed');
     } finally {
       setLoading(false);
     }
@@ -75,14 +76,12 @@ export default function OTPVerification() {
   const resendOTP = async () => {
     try {
       const data = await sendOtp({ email, phone });
+      if (data?.devOtp) setDevOtp(data.devOtp);
       setCount(60);
       setCanResend(false);
       toast.success('OTP resent!');
-      if (data.devOtp) {
-        toast(`Dev OTP: ${data.devOtp}`, { icon: '🔑', duration: 12000 });
-      }
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Could not resend OTP');
+      toast.error(err.message || 'Could not resend OTP');
     }
   };
 
@@ -104,13 +103,22 @@ export default function OTPVerification() {
         <h1 style={{ fontFamily:'Outfit,sans-serif', fontSize:'1.9rem', fontWeight:800, color:'#fff', marginBottom:8 }}>
           Verify Your Phone
         </h1>
+        {devOtp ? (
+          <div style={{ background:'rgba(244,63,94,0.15)', border:'1px solid rgba(244,63,94,0.3)', borderRadius:12, padding:'10px 16px', marginBottom:24, textAlign:'center' }}>
+            <p style={{ color:'#fb7185', fontSize:'0.85rem', fontWeight:600, margin:0 }}>
+              DEV MODE — Your OTP: <span style={{ fontSize:'1.3rem', letterSpacing:4 }}>{devOtp}</span>
+            </p>
+          </div>
+        ) : (
+          <div style={{ background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.3)', borderRadius:12, padding:'10px 16px', marginBottom:24, textAlign:'center' }}>
+            <p style={{ color:'#60a5fa', fontSize:'0.85rem', fontWeight:600, margin:0 }}>
+              📱 SMS sent! Check your phone for the 6-digit code
+            </p>
+          </div>
+        )}
         <p style={{ color:'rgba(255,255,255,0.5)', marginBottom:36, fontSize:'0.95rem', lineHeight:1.6 }}>
           Enter the 6-digit code for<br/>
           <strong style={{ color:'rgba(255,255,255,0.8)' }}>{displayTarget}</strong>
-          <br/>
-          <span style={{ color:'rgba(255,255,255,0.3)', fontSize:'0.8rem' }}>
-            (Dev mode: use <strong style={{color:'#fb7185'}}>123456</strong> or check the toast after signup)
-          </span>
         </p>
 
         <div className="otp-input-group" style={{ marginBottom:32 }} onPaste={handlePaste}>
