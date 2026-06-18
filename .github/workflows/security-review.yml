@@ -96,7 +96,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Semgrep
-        run: pip install semgrep
+        run: python -m pip install semgrep
 
       - name: Run Semgrep SAST Scan
         run: |
@@ -208,7 +208,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Report Dependencies
-        run: pip install -r scripts/requirements-security.txt
+        run: python -m pip install pandas openpyxl
 
       - name: Create Reports Directory Structure
         run: |
