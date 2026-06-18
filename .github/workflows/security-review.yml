@@ -144,7 +144,7 @@ jobs:
   # JOB 4 — Dependency Scan with Trivy
   # ────────────────────────────────────────────────────────────────────────────
   dependency-scan:
-    name: "📦 Dependency / Vulnerability Scan"
+    name: "📦 Dependency Vulnerability Scan"
     runs-on: ubuntu-latest
     needs: detect-stack
     steps:
@@ -194,7 +194,7 @@ jobs:
   # JOB 5 — Generate All Reports & Enforce Gate
   # ────────────────────────────────────────────────────────────────────────────
   generate-reports:
-    name: "📊 Generate Security Reports"
+    name: "📄 Generate Security Reports"
     runs-on: ubuntu-latest
     needs: [sast-semgrep, dependency-scan, secret-detection]
     if: always()
