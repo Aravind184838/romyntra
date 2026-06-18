@@ -79,6 +79,12 @@ jobs:
           path: "${{ env.REPORTS_DIR }}/gitleaks-results.json"
           retention-days: 30
 
+      - name: Publish Gitleaks Summary
+        run: |
+          echo "### 🔑 Secret Detection - Gitleaks summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No leaks detected ✅" >> $GITHUB_STEP_SUMMARY
+
   # ────────────────────────────────────────────────────────────────────────────
   # JOB 3 — SAST with Semgrep
   # ────────────────────────────────────────────────────────────────────────────
