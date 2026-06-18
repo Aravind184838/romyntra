@@ -1,13 +1,16 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { HashRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import './index.css'
 import App from './App.jsx'
 
+// HashRouter is used instead of BrowserRouter so that GitHub Pages
+// static hosting serves all routes correctly.
+// Routes become: https://username.github.io/repo/#/login
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
+    <HashRouter>
       <App />
       <Toaster
         position="top-center"
@@ -26,6 +29,6 @@ createRoot(document.getElementById('root')).render(
           },
         }}
       />
-    </BrowserRouter>
+    </HashRouter>
   </StrictMode>,
 )

@@ -1,0 +1,24 @@
+{
+  "name": "romyntra-selenium-tests",
+  "version": "1.0.0",
+  "description": "Selenium E2E tests for Romyntra — runs against GitHub Pages live deployment",
+  "type": "commonjs",
+  "scripts": {
+    "test":       "mocha tests/**/*.test.js --timeout 30000 --reporter spec",
+    "test:ci":    "mocha tests/**/*.test.js --timeout 60000 --reporter spec --exit",
+    "splash":     "mocha tests/01-splash.test.js   --timeout 30000 --reporter spec",
+    "login":      "mocha tests/02-login.test.js    --timeout 30000 --reporter spec",
+    "signup":     "mocha tests/03-signup.test.js   --timeout 30000 --reporter spec",
+    "navigation": "mocha tests/04-navigation.test.js --timeout 30000 --reporter spec",
+    "ui":         "mocha tests/05-ui.test.js       --timeout 30000 --reporter spec",
+    "report":     "node utils/generate-report.js"
+  },
+  "devDependencies": {
+    "selenium-webdriver": "^4.21.0",
+    "mocha":              "^10.4.0",
+    "mochawesome":        "^7.1.3",
+    "mochawesome-merge":  "^4.3.0",
+    "mochawesome-report-generator": "^6.2.0",
+    "axios":              "^1.7.2"
+  }
+}

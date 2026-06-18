@@ -42,8 +42,20 @@ def get_toast_text(driver, timeout=10):
 
 
 def navigate(driver, base_url, path=""):
-    driver.get(f"{base_url}{path}")
+    """Navigate to a HashRouter route.
+
+    HashRouter routes use the fragment (#) so GitHub Pages static hosting
+    serves them correctly.
+    Example: navigate(driver, 'http://localhost:5173', '/login')
+             → driver.get('http://localhost:5173/#/login')
+    """
+    # Normalize: strip trailing slash from base, leading slash from path
+    base = base_url.rstrip("/")
+    route = path.lstrip("/")
+    url = f"{base}/#{('/' + route) if route else '/'}"
+    driver.get(url)
     time.sleep(0.5)
+
 
 
 # ── Page-level helpers ──────────────────────────────────────────────────────

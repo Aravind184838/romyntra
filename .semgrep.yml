@@ -1,0 +1,135 @@
+# .semgrep.yml
+# ─────────────────────────────────────────────────────────────────────────────
+# Custom Semgrep rules for the Romyntra Node.js / Express backend.
+# These run IN ADDITION to the auto-selected rulesets in the workflow.
+# ─────────────────────────────────────────────────────────────────────────────
+rules:
+
+  # ── JWT ────────────────────────────────────────────────────────────────────
+  - id: jwt-hardcoded-secret
+    patterns:
+      - pattern: jwt.sign($PAYLOAD, "$SECRET", ...)
+      - pattern-not: jwt.sign($PAYLOAD, process.env.$VAR, ...)
+    message: >
+      JWT token signed with a hardcoded string literal instead of
+      an environment variable. A leaked secret allows token forgery.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cwe: CWE-798
+      fix: Replace the hardcoded secret with `process.env.JWT_SECRET`.
+
+  - id: jwt-algorithm-none
+    pattern: jwt.verify($TOKEN, $SECRET, {algorithms: ["none"]})
+    message: >
+      JWT verification allows the 'none' algorithm, enabling signature bypass.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cwe: CWE-327
+
+  - id: jwt-no-expiry
+    pattern: jwt.sign($PAYLOAD, $SECRET)
+    message: >
+      JWT token signed without an expiration (`expiresIn`).
+      Tokens will never expire, increasing the window for token replay attacks.
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      cwe: CWE-613
+      fix: Add `{ expiresIn: '7d' }` (or appropriate window) as the third argument.
+
+  # ── NoSQL Injection ─────────────────────────────────────────────────────────
+  - id: nosql-injection-mongoose-where
+    patterns:
+      - pattern: $MODEL.find({$FIELD: req.body.$X})
+      - pattern-not: $MODEL.find({$FIELD: {$eq: req.body.$X}})
+    message: >
+      Possible NoSQL injection: user-supplied value passed directly
+      to Mongoose query without sanitisation. An attacker could supply
+      a MongoDB operator object (e.g. `{"$gt":""}`) to bypass filters.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cwe: CWE-943
+      fix: Sanitise inputs or use `{ $eq: value }` to force scalar comparison.
+
+  # ── Path Traversal ──────────────────────────────────────────────────────────
+  - id: path-traversal-join
+    patterns:
+      - pattern: path.join($BASE, req.params.$X)
+      - pattern-not: path.join($BASE, path.basename(req.params.$X))
+    message: >
+      Potential path traversal: `req.params` value used in `path.join` without
+      sanitisation. An attacker can escape the base directory using `../` sequences.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cwe: CWE-22
+      fix: Use `path.basename()` or validate against an allowlist.
+
+  # ── Sensitive logging ────────────────────────────────────────────────────────
+  - id: log-password-field
+    patterns:
+      - pattern: console.log(..., $X.password, ...)
+    message: >
+      Password field logged to console. Sensitive credentials must
+      never appear in application logs.
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      cwe: CWE-312
+      fix: Remove or mask the password field before logging.
+
+  # ── Weak hashing ─────────────────────────────────────────────────────────────
+  - id: weak-hash-md5-sha1
+    patterns:
+      - pattern: crypto.createHash("md5")
+      - pattern: crypto.createHash("sha1")
+    message: >
+      MD5 and SHA-1 are cryptographically broken and must not be used
+      to hash passwords or sensitive data.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cwe: CWE-327
+      fix: Use bcrypt (already in dependencies) or SHA-256/SHA-512.
+
+  # ── Eval injection ────────────────────────────────────────────────────────────
+  - id: eval-user-input
+    patterns:
+      - pattern: eval(req.body.$X)
+      - pattern: eval(req.query.$X)
+      - pattern: eval(req.params.$X)
+    message: >
+      `eval()` called with user-supplied input — critical code injection risk.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cwe: CWE-94
+
+  # ── Insecure CORS ─────────────────────────────────────────────────────────────
+  - id: cors-wildcard-origin
+    pattern: cors({origin: "*"})
+    message: >
+      CORS configured with wildcard origin (`*`). When combined with
+      `credentials: true`, this allows any website to make authenticated
+      cross-origin requests on behalf of your users.
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      cwe: CWE-942
+      fix: Restrict origin to a specific allowlist.
+
+  # ── Open redirect ─────────────────────────────────────────────────────────────
+  - id: open-redirect
+    patterns:
+      - pattern: res.redirect(req.query.$X)
+      - pattern: res.redirect(req.body.$X)
+    message: >
+      Possible open redirect: user-supplied URL passed directly to `res.redirect`.
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      cwe: CWE-601
+      fix: Validate redirect URL against an allowlist of safe destinations.

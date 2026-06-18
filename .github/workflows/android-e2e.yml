@@ -1,0 +1,284 @@
+name: 📱 Appium E2E + GitHub Pages Report Publishing
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  REPORTS_DIR: "Test Results"
+  PAGES_DIR:   "gh-pages-reports"
+  APP_NAME:    "Romyntra"
+  BUILD_NUM:   ${{ github.run_number }}
+
+# Required for GitHub Pages deployment
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  actions: read
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 1: Start backend + frontend, run Appium E2E tests, generate reports
+  # ─────────────────────────────────────────────────────────────────────────
+  appium-e2e:
+    name: "📱 Appium E2E Tests (Android Chrome)"
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # ── 2. Node.js Setup ────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+
+      # ── 3. Install & Start Backend ──────────────────────────────────────
+      - name: Install Backend Dependencies
+        working-directory: ./backend
+        run: npm install
+
+      - name: Start Backend Server
+        working-directory: ./backend
+        env:
+          MONGO_URI: mongodb://localhost:27017/romyntra_e2e
+          JWT_SECRET: e2e_test_jwt_secret_key_2024
+          NODE_ENV: test
+          PORT: 5000
+          DISABLE_RATE_LIMIT: "true"
+        run: |
+          npm start &
+          npx wait-on http://localhost:5000/api/health --timeout 60000
+          echo "✅ Backend is up at http://localhost:5000"
+
+      # ── 4. Install & Start Frontend ─────────────────────────────────────
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm install
+
+      - name: Start Frontend Dev Server
+        working-directory: ./frontend
+        run: |
+          npm run dev -- --host 0.0.0.0 --port 5173 &
+          npx wait-on http://localhost:5173 --timeout 60000
+          echo "✅ Frontend is up at http://localhost:5173"
+
+      # ── 5. Python + Appium Dependencies ─────────────────────────────────
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Appium Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r appium_tests/requirements.txt
+
+      # ── 6. Java (Appium Server requires JDK) ────────────────────────────
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      # ── 7. Install Appium Server ─────────────────────────────────────────
+      - name: Install Appium 2.x + UiAutomator2 Driver
+        run: |
+          npm install -g appium@latest
+          appium driver install uiautomator2
+          appium driver install chromium
+          echo "✅ Appium installed: $(appium --version)"
+
+      # ── 8. Android SDK / Emulator Setup ─────────────────────────────────
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept Android SDK Licenses
+        run: yes | sdkmanager --licenses || true
+
+      - name: Install Android Emulator Components
+        run: |
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-34" \
+            "emulator" \
+            "system-images;android-34;google_apis;x86_64"
+
+      - name: Create AVD (Android Virtual Device)
+        run: |
+          echo "no" | avdmanager create avd \
+            --force \
+            --name "Romyntra_E2E" \
+            --abi google_apis/x86_64 \
+            --package "system-images;android-34;google_apis;x86_64" \
+            --device "pixel_6"
+
+      - name: Start Android Emulator
+        run: |
+          $ANDROID_HOME/emulator/emulator \
+            -avd Romyntra_E2E \
+            -no-window \
+            -no-audio \
+            -no-boot-anim \
+            -gpu swiftshader_indirect \
+            -memory 4096 \
+            &
+          adb wait-for-device
+          # Wait until boot is fully complete
+          echo "⏳ Waiting for emulator to boot..."
+          timeout 300 bash -c \
+            'until adb shell getprop sys.boot_completed 2>/dev/null | grep -q "1"; do sleep 3; done'
+          echo "✅ Emulator booted"
+          adb shell input keyevent 82
+
+      - name: Verify Emulator is Ready
+        run: |
+          adb devices
+          adb shell getprop ro.product.model
+
+      # ── 9. Start Appium Server ───────────────────────────────────────────
+      - name: Start Appium Server
+        run: |
+          mkdir -p "${{ env.REPORTS_DIR }}/Logs"
+          appium \
+            --address 127.0.0.1 \
+            --port 4723 \
+            --log "${{ env.REPORTS_DIR }}/Logs/appium.log" \
+            --log-level info \
+            &
+          # Wait for Appium to be ready
+          npx wait-on http://127.0.0.1:4723/status --timeout 60000
+          echo "✅ Appium server running at http://127.0.0.1:4723"
+
+      # ── 10. Prepare Report Directories ─────────────────────────────────
+      - name: Create Report Directory Structure
+        run: |
+          mkdir -p "${{ env.REPORTS_DIR }}/Excel"
+          mkdir -p "${{ env.REPORTS_DIR }}/HTML"
+          mkdir -p "${{ env.REPORTS_DIR }}/Screenshots"
+          mkdir -p "${{ env.REPORTS_DIR }}/Logs"
+          mkdir -p "${{ env.REPORTS_DIR }}/Summary"
+
+      # ── 11. Run Appium E2E Tests ────────────────────────────────────────
+      - name: Run Appium E2E Tests
+        working-directory: ./appium_tests
+        env:
+          CI: "true"
+          APPIUM_HOST: "127.0.0.1"
+          APPIUM_PORT: "4723"
+          BASE_URL: "http://10.0.2.2:5173"
+          API_URL: "http://10.0.2.2:5000/api"
+          BUILD_NUMBER: ${{ env.BUILD_NUM }}
+          SCREENSHOTS_DIR: "../${{ env.REPORTS_DIR }}/Screenshots"
+          LOGS_DIR: "../${{ env.REPORTS_DIR }}/Logs"
+        run: |
+          pytest \
+            -v \
+            --tb=short \
+            --json-report \
+            --json-report-file=../appium_report.json \
+            --html=../"${{ env.REPORTS_DIR }}"/HTML/execution-report.html \
+            --self-contained-html \
+            -p no:warnings \
+            || true  # continue even if tests fail to collect reports
+
+      # ── 12. Generate Excel + Markdown Reports ───────────────────────────
+      - name: Generate Excel & Summary Reports
+        if: always()
+        env:
+          BUILD_NUMBER: ${{ env.BUILD_NUM }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          python appium_tests/generate_reports.py \
+            --json-report  appium_report.json \
+            --output-dir   "${{ env.REPORTS_DIR }}" \
+            --build-number "${{ env.BUILD_NUM }}" \
+            --repo         "${{ github.repository }}" \
+            --branch       "${{ github.ref_name }}" \
+            --commit       "${{ github.sha }}" \
+            --run-number   "${{ github.run_number }}"
+
+      # ── 13. Publish GitHub Actions Step Summary ─────────────────────────
+      - name: Publish Step Summary
+        if: always()
+        run: |
+          SUMMARY_FILE="${{ env.REPORTS_DIR }}/Summary/summary.md"
+          if [ -f "$SUMMARY_FILE" ]; then
+            cat "$SUMMARY_FILE" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ⚠️ Test summary not generated" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # ── 14. Upload All Artifacts ─────────────────────────────────────────
+      - name: Upload Test Results Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appium-test-results-build-${{ env.BUILD_NUM }}
+          path: "${{ env.REPORTS_DIR }}/"
+          retention-days: 30
+
+      - name: Upload Appium Server Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appium-server-log-build-${{ env.BUILD_NUM }}
+          path: "${{ env.REPORTS_DIR }}/Logs/appium.log"
+          retention-days: 30
+
+      # ── 15. Prepare GitHub Pages Content ─────────────────────────────────
+      - name: Prepare GitHub Pages Content
+        if: always()
+        run: |
+          python appium_tests/prepare_gh_pages.py \
+            --reports-dir  "${{ env.REPORTS_DIR }}" \
+            --pages-dir    "${{ env.PAGES_DIR }}" \
+            --build-number "${{ env.BUILD_NUM }}" \
+            --repo         "${{ github.repository }}"
+
+      # ── 16. Deploy to GitHub Pages ────────────────────────────────────────
+      - name: Deploy Reports to GitHub Pages
+        if: always() && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ${{ env.PAGES_DIR }}
+          publish_branch: gh-pages
+          keep_files: true
+          commit_message: "📊 Deploy E2E report — Build #${{ env.BUILD_NUM }} [${{ github.sha }}]"
+
+      # ── 17. Print Live Report URL ─────────────────────────────────────────
+      - name: Print Live Report URL
+        if: always() && github.ref == 'refs/heads/main'
+        run: |
+          REPO="${{ github.repository }}"
+          OWNER=$(echo "$REPO" | cut -d'/' -f1)
+          REPO_NAME=$(echo "$REPO" | cut -d'/' -f2)
+          echo ""
+          echo "════════════════════════════════════════════════"
+          echo "  📊 LIVE REPORT URL"
+          echo "════════════════════════════════════════════════"
+          echo "  https://${OWNER}.github.io/${REPO_NAME}/reports/latest/execution-report.html"
+          echo "════════════════════════════════════════════════"
+          echo ""

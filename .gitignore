@@ -11,3 +11,10 @@ __pycache__/
 *.pyc
 reports/
 *.txt
+
+# Appium E2E CI output
+gh-pages-reports/
+appium_report.json
+Test Results/
+appium_tests/__pycache__/
+appium_tests/.pytest_cache/

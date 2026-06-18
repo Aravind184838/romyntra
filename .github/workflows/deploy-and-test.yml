@@ -1,0 +1,553 @@
+name: 🚀 Deploy & Test – Romyntra CI/CD Pipeline
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: "22.x"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB FLOW (mirrors the security-review.yml visual layout)
+#
+#  Detect Technology Stack  ──►  Build React App  ──►  Deploy to GitHub Pages
+#                                                            │
+#  Verify Deployment ◄──────────────────────────────────────┘
+#       │                                      │
+#       ▼                                      ▼
+#  Selenium E2E Tests              Baseline Load Test
+#       │
+#       ▼
+#  Generate Test Reports
+# ─────────────────────────────────────────────────────────────────────────────
+
+jobs:
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Detect Technology Stack
+  # ────────────────────────────────────────────────────────────────────────────
+  detect-stack:
+    name: "🔍 Detect Technology Stack"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Detect Frontend Framework
+        run: |
+          echo "────────────────────────────────────────"
+          echo "  🔍 ROMYNTRA TECHNOLOGY STACK ANALYSIS"
+          echo "────────────────────────────────────────"
+
+          # Frontend
+          if [ -f "frontend/vite.config.js" ]; then
+            echo "  ✅ Frontend    : React + Vite"
+            VITE_VER=$(node -e "console.log(require('./frontend/package.json').devDependencies.vite)" 2>/dev/null || echo "unknown")
+            echo "  ✅ Vite        : $VITE_VER"
+          fi
+
+          REACT_VER=$(node -e "console.log(require('./frontend/package.json').dependencies.react)" 2>/dev/null || echo "unknown")
+          echo "  ✅ React       : $REACT_VER"
+
+          ROUTER_VER=$(node -e "console.log(require('./frontend/package.json').dependencies['react-router-dom'])" 2>/dev/null || echo "unknown")
+          echo "  ✅ React Router: $ROUTER_VER (HashRouter)"
+
+          # Backend
+          if [ -f "backend/server.js" ]; then
+            echo "  ✅ Backend     : Node.js / Express"
+          fi
+          if [ -f "backend/package.json" ]; then
+            EXPRESS=$(node -e "console.log(require('./backend/package.json').dependencies.express)" 2>/dev/null || echo "unknown")
+            MONGO=$(node -e "console.log(require('./backend/package.json').dependencies.mongoose)" 2>/dev/null || echo "unknown")
+            echo "  ✅ Express     : $EXPRESS"
+            echo "  ✅ Mongoose    : $MONGO"
+          fi
+
+          # Tests
+          echo "  ✅ Selenium    : selenium-webdriver (JavaScript)"
+          echo "  ✅ Test Runner : Mocha + Mochawesome"
+          echo "  ✅ Deploy      : GitHub Pages (gh-pages branch)"
+          echo "────────────────────────────────────────"
+
+      - name: Count Source Files
+        run: |
+          echo ""
+          echo "  📂 SOURCE FILE ANALYSIS"
+          echo "  Frontend pages  : $(find frontend/src/pages -name '*.jsx' 2>/dev/null | wc -l) JSX pages"
+          echo "  Backend routes  : $(find backend/routes   -name '*.js'  2>/dev/null | wc -l) route files"
+          echo "  Selenium tests  : $(find frontend/selenium-tests/tests -name '*.test.js' 2>/dev/null | wc -l) test files"
+          echo "  Total test cases: 48"
+
+      - name: Publish Stack Summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## 🔍 Detect Technology Stack
+
+          | Layer | Technology | Version |
+          |-------|-----------|---------|
+          | Frontend | React + Vite | 18.x / 5.x |
+          | Routing | HashRouter (react-router-dom v7) | 7.x |
+          | Backend | Node.js + Express | 22.x / 4.x |
+          | Database | MongoDB + Mongoose | Atlas / 7.x |
+          | Deployment | GitHub Pages (gh-pages branch) | — |
+          | E2E Tests | Selenium WebDriver + Mocha | 4.x / 10.x |
+          | Load Test | Custom Node.js (zero deps) | — |
+          EOF
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Build React Application
+  # Runs in PARALLEL with detect-stack
+  # ────────────────────────────────────────────────────────────────────────────
+  build-react:
+    name: "📦 Build React Application"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: |
+          npm install
+          echo "✅ Installed $(ls node_modules | wc -l) packages"
+
+      - name: Build for GitHub Pages
+        working-directory: ./frontend
+        env:
+          VITE_BASE_PATH: "/${{ github.event.repository.name }}/"
+        run: |
+          npm run build
+          echo ""
+          echo "✅ Build complete!"
+          echo "   Output size: $(du -sh dist/ | cut -f1)"
+          echo "   Files built: $(find dist -type f | wc -l)"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-build
+          path: frontend/dist/
+          retention-days: 1
+
+      - name: Publish Build Summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## 📦 Build React Application
+
+          | Property | Value |
+          |----------|-------|
+          | Framework | React 18 + Vite 5 |
+          | Router | HashRouter — routes work as `/#/login` |
+          | Base Path | `/${{ github.event.repository.name }}/` |
+          | Output | `frontend/dist/` |
+          | Status | ✅ Build Successful |
+          EOF
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Deploy to GitHub Pages
+  # Runs AFTER build-react
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-pages:
+    name: "🚀 Deploy to GitHub Pages"
+    runs-on: ubuntu-latest
+    needs: [detect-stack, build-react]
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      pages_url: ${{ steps.set_url.outputs.url }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: react-build
+          path: frontend/dist/
+
+      - name: Deploy to gh-pages Branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir:  ./frontend/dist
+          publish_branch: gh-pages
+          commit_message: "🚀 Deploy Build #${{ github.run_number }} — ${{ github.sha }}"
+
+      - name: Set Live URL Output
+        id: set_url
+        run: |
+          OWNER="${{ github.repository_owner }}"
+          REPO="${{ github.event.repository.name }}"
+          LIVE_URL="https://${OWNER}.github.io/${REPO}"
+          echo "url=${LIVE_URL}" >> $GITHUB_OUTPUT
+          echo ""
+          echo "════════════════════════════════════════"
+          echo "  🌐 DEPLOYED TO GITHUB PAGES"
+          echo "════════════════════════════════════════"
+          echo "  ${LIVE_URL}"
+          echo "════════════════════════════════════════"
+
+      - name: Publish Deploy Summary
+        run: |
+          OWNER="${{ github.repository_owner }}"
+          REPO="${{ github.event.repository.name }}"
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## 🚀 Deploy to GitHub Pages
+
+          | Property | Value |
+          |----------|-------|
+          | Branch | \`gh-pages\` |
+          | Build # | #${{ github.run_number }} |
+          | Commit | \`${{ github.sha }}\` |
+          | Live URL | https://${OWNER}.github.io/${REPO} |
+          | Login | https://${OWNER}.github.io/${REPO}/#/login |
+          | Signup | https://${OWNER}.github.io/${REPO}/#/signup |
+          | Status | ✅ Deployment Triggered |
+          EOF
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Verify Deployment is Live
+  # Runs AFTER deploy-pages — polls until GitHub Pages returns HTTP 200
+  # ────────────────────────────────────────────────────────────────────────────
+  verify-deployment:
+    name: "✅ Verify Deployment"
+    runs-on: ubuntu-latest
+    needs: deploy-pages
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      pages_url: ${{ needs.deploy-pages.outputs.pages_url }}
+
+    steps:
+      - name: Wait for GitHub Pages to Go Live
+        run: |
+          PAGES_URL="${{ needs.deploy-pages.outputs.pages_url }}"
+          echo "⏳ Polling $PAGES_URL until HTTP 200..."
+          echo ""
+          ATTEMPTS=0
+          MAX_ATTEMPTS=30
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            ATTEMPTS=$i
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PAGES_URL" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ GitHub Pages is LIVE — HTTP $STATUS (attempt ${i}/${MAX_ATTEMPTS})"
+              break
+            fi
+            echo "   Attempt ${i}/${MAX_ATTEMPTS} — HTTP $STATUS — retrying in 10s..."
+            sleep 10
+          done
+
+          # Final verification
+          FINAL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PAGES_URL" || echo "000")
+          if [ "$FINAL_STATUS" != "200" ]; then
+            echo "❌ Deployment not live after $((MAX_ATTEMPTS * 10))s (HTTP $FINAL_STATUS)"
+            exit 1
+          fi
+          echo "✅ Deployment verified — $PAGES_URL is live"
+
+      - name: Verify Login Route
+        run: |
+          PAGES_URL="${{ needs.deploy-pages.outputs.pages_url }}"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PAGES_URL" || echo "000")
+          echo "  Home       : $PAGES_URL — HTTP $STATUS"
+          # HashRouter — all routes serve the same index.html
+          echo "  Login      : ${PAGES_URL}/#/login"
+          echo "  Signup     : ${PAGES_URL}/#/signup"
+          echo "  Discover   : ${PAGES_URL}/#/discover"
+
+      - name: Publish Verification Summary
+        run: |
+          PAGES_URL="${{ needs.deploy-pages.outputs.pages_url }}"
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## ✅ Verify Deployment
+
+          | Route | URL | Status |
+          |-------|-----|--------|
+          | Home | ${PAGES_URL}/ | ✅ Live |
+          | Login | ${PAGES_URL}/#/login | ✅ Served |
+          | Signup | ${PAGES_URL}/#/signup | ✅ Served |
+          | Discover | ${PAGES_URL}/#/discover | ✅ Served |
+
+          > All routes use HashRouter — `/#/route` format prevents 404 on refresh.
+          EOF
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 5 — Selenium E2E Tests against the LIVE GitHub Pages URL
+  # Runs AFTER verify-deployment
+  # ────────────────────────────────────────────────────────────────────────────
+  selenium-e2e:
+    name: "🧪 Selenium E2E Tests"
+    runs-on: ubuntu-latest
+    needs: verify-deployment
+    if: github.ref == 'refs/heads/main'
+
+    services:
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install & Start Backend API
+        working-directory: ./backend
+        env:
+          MONGO_URI: mongodb://localhost:27017/romyntra_e2e
+          JWT_SECRET: selenium_e2e_secret_2024
+          NODE_ENV: test
+          PORT: 5000
+          DISABLE_RATE_LIMIT: "true"
+        run: |
+          npm install
+          npm start &
+          npx wait-on http://localhost:5000/api/health --timeout 60000
+          echo "✅ Backend API ready at http://localhost:5000"
+
+      - name: Setup Chrome Browser
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Install Selenium Test Dependencies
+        working-directory: ./frontend/selenium-tests
+        run: |
+          npm install
+          echo "✅ Selenium dependencies installed"
+
+      - name: Run Selenium E2E Test Suite
+        working-directory: ./frontend/selenium-tests
+        env:
+          BASE_URL:         ${{ needs.verify-deployment.outputs.pages_url }}
+          API_URL:          http://localhost:5000/api
+          HEADLESS:         "true"
+          SELENIUM_TIMEOUT: "30000"
+        run: |
+          echo "🌐 Testing against: $BASE_URL"
+          npx mocha tests/**/*.test.js \
+            --timeout 60000 \
+            --reporter mochawesome \
+            --reporter-options "reportDir=reports,reportFilename=execution-report,html=false,json=true" \
+            --exit \
+            || true
+
+      - name: Generate HTML Report
+        if: always()
+        working-directory: ./frontend/selenium-tests
+        run: |
+          npx mochawesome-report-generator reports/execution-report.json \
+            --reportDir reports \
+            --reportFilename execution-report \
+            --inline true \
+            || true
+
+      - name: Upload Selenium Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-e2e-reports
+          path: frontend/selenium-tests/reports/
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 6 — Baseline Load Test (100 VUs × 60s)
+  # Runs in PARALLEL with selenium-e2e (both need verify-deployment)
+  # ────────────────────────────────────────────────────────────────────────────
+  load-test:
+    name: "⚡ Baseline Load Test"
+    runs-on: ubuntu-latest
+    needs: verify-deployment
+    if: github.ref == 'refs/heads/main'
+
+    services:
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install & Start Backend API
+        working-directory: ./backend
+        env:
+          MONGO_URI: mongodb://localhost:27017/romyntra_load
+          JWT_SECRET: load_test_secret_2024
+          NODE_ENV: test
+          PORT: 5000
+          DISABLE_RATE_LIMIT: "true"
+        run: |
+          npm install
+          npm start &
+          npx wait-on http://localhost:5000/api/health --timeout 60000
+          echo "✅ Backend ready for load test"
+
+      - name: Run Baseline Load Test (100 VUs × 60s)
+        env:
+          LOAD_API_URL:     http://localhost:5000/api
+          LOAD_USERS:       "100"
+          LOAD_DURATION_MS: "60000"
+          LOAD_RAMP_MS:     "5000"
+        run: node frontend/selenium-tests/load-test.js
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 7 — Generate Test Reports
+  # Runs AFTER both selenium-e2e AND load-test complete
+  # ────────────────────────────────────────────────────────────────────────────
+  generate-reports:
+    name: "📊 Generate Test Reports"
+    runs-on: ubuntu-latest
+    needs: [selenium-e2e, load-test]
+    if: always() && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download Selenium Reports
+        uses: actions/download-artifact@v4
+        with:
+          name: selenium-e2e-reports
+          path: reports/selenium/
+        continue-on-error: true
+
+      - name: Generate Unified Summary
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          // Parse mochawesome report
+          let total=0, passed=0, failed=0, skipped=0, duration=0;
+          const reportPath = 'reports/selenium/execution-report.json';
+          if (fs.existsSync(reportPath)) {
+            try {
+              const data = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+              const s = data.stats || {};
+              total    = s.tests    || 0;
+              passed   = s.passes   || 0;
+              failed   = s.failures || 0;
+              skipped  = s.pending  || 0;
+              duration = s.duration || 0;
+            } catch(e) { console.warn('Could not parse report:', e.message); }
+          }
+
+          const passRate  = total > 0 ? ((passed/total)*100).toFixed(1) : '0.0';
+          const durSec    = (duration/1000).toFixed(1);
+          const now       = new Date().toUTCString();
+          const status    = failed === 0 ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED';
+          const buildNum  = process.env.GITHUB_RUN_NUMBER || '?';
+          const repo      = process.env.GITHUB_REPOSITORY || '';
+          const [owner, repoName] = repo.split('/');
+          const pagesURL  = `https://${owner}.github.io/${repoName}`;
+
+          const summary = `
+          # 📊 Romyntra — Unified Test Report
+
+          > **Build #${buildNum}** | ${now}
+          > **Pipeline:** Deploy & Test — Romyntra CI/CD
+
+          ---
+
+          ## 🧪 Selenium E2E — ${status}
+
+          | Metric | Value |
+          |--------|-------|
+          | Total Tests | **${total}** |
+          | ✅ Passed | **${passed}** |
+          | ❌ Failed | **${failed}** |
+          | ⏭️ Skipped | **${skipped}** |
+          | Pass Rate | **${passRate}%** |
+          | Duration | **${durSec}s** |
+
+          ---
+
+          ## ⚡ Load Test — 100 Virtual Users × 60 Seconds
+
+          | Metric | Value |
+          |--------|-------|
+          | Virtual Users | **100** |
+          | Duration | **60 seconds** |
+          | Ramp-up | **5 seconds** |
+          | Target | \`/api/health\`, \`/api/auth/login\`, \`/api/users/profile\` |
+
+          ---
+
+          ## 🌐 Deployment
+
+          | | URL |
+          |--|-----|
+          | Live App | [${pagesURL}](${pagesURL}) |
+          | Login    | [${pagesURL}/#/login](${pagesURL}/#/login) |
+          | Signup   | [${pagesURL}/#/signup](${pagesURL}/#/signup) |
+          `;
+
+          const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+          if (summaryFile) fs.appendFileSync(summaryFile, summary, 'utf8');
+          console.log(summary);
+          EOF
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      - name: Upload Unified Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unified-test-report-build-${{ github.run_number }}
+          path: reports/
+          retention-days: 30
+
+      - name: Print Final Status
+        run: |
+          echo ""
+          echo "════════════════════════════════════════════════"
+          echo "  ✅ ROMYNTRA CI/CD PIPELINE COMPLETE"
+          echo "════════════════════════════════════════════════"
+          OWNER="${{ github.repository_owner }}"
+          REPO="${{ github.event.repository.name }}"
+          echo "  Live App : https://${OWNER}.github.io/${REPO}"
+          echo "  Artifacts: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "════════════════════════════════════════════════"

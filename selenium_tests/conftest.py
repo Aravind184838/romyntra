@@ -3,14 +3,16 @@ conftest.py - Shared fixtures and configuration for Romyntra Selenium tests
 """
 import pytest
 import time
+import os
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
-BASE_URL = "http://localhost:5173"
-API_URL  = "http://localhost:5000/api"
+# Read from environment so CI can point at GitHub Pages or local dev.
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:5173")
+API_URL  = os.environ.get("API_URL",  "http://localhost:5000/api")
 
 # ── Reusable test data ──────────────────────────────────────────────────────
 TEST_USER = {
@@ -20,9 +22,6 @@ TEST_USER = {
     "password": "Test@1234",
     "dob":     "2000-01-15",
 }
-
-
-import os
 
 # ── Driver fixture ──────────────────────────────────────────────────────────
 @pytest.fixture(scope="session")
