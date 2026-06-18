@@ -16,12 +16,66 @@ permissions:
   security-events: write   # required for SARIF upload to GitHub Security tab
 
 jobs:
+
   # ────────────────────────────────────────────────────────────────────────────
-  # JOB 1 — SAST with Semgrep
+  # JOB 1 — Detect Technology Stack
+  # ────────────────────────────────────────────────────────────────────────────
+  detect-stack:
+    name: "🔍 Detect Technology Stack"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Detect Frontend & Backend Frameworks
+        run: |
+          echo "────────────────────────────────────────"
+          echo "  🔍 ROMYNTRA TECHNOLOGY STACK ANALYSIS"
+          echo "────────────────────────────────────────"
+          if [ -f "frontend/vite.config.js" ]; then
+            echo "  ✅ Frontend    : React + Vite"
+            VITE_VER=$(node -e "console.log(require('./frontend/package.json').devDependencies.vite)" 2>/dev/null || echo "unknown")
+            echo "  ✅ Vite        : $VITE_VER"
+          fi
+          REACT_VER=$(node -e "console.log(require('./frontend/package.json').dependencies.react)" 2>/dev/null || echo "unknown")
+          echo "  ✅ React       : $REACT_VER"
+          if [ -f "backend/server.js" ]; then
+            echo "  ✅ Backend     : Node.js / Express"
+          fi
+          echo "  ✅ SAST        : Semgrep"
+          echo "  ✅ Dependency  : Trivy"
+          echo "────────────────────────────────────────"
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Security Objectives & Scope
+  # ────────────────────────────────────────────────────────────────────────────
+  security-objectives:
+    name: "📝 Security Objectives & Scope"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Define Security Scope
+        run: |
+          echo "════════════════════════════════════════════════"
+          echo "  📝 ROMYNTRA SECURITY OBJECTIVES & SCOPE"
+          echo "════════════════════════════════════════════════"
+          echo "  SAST Scope      : backend/, frontend/src/"
+          echo "  Dependency Scope: package.json, package-lock.json"
+          echo "  Threat Profile  : OWASP Top 10 Web Application Risks"
+          echo "  Compliance      : OWASP ASVS Level 1 Checklist"
+          echo "════════════════════════════════════════════════"
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 3 — SAST with Semgrep
   # ────────────────────────────────────────────────────────────────────────────
   sast-semgrep:
-    name: "🔍 SAST — Semgrep"
+    name: "🛠️ SAST - Semgrep"
     runs-on: ubuntu-latest
+    needs: detect-stack
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -42,8 +96,6 @@ jobs:
             --config .semgrep.yml \
             --json \
             --output "${{ env.REPORTS_DIR }}/semgrep-results.json" \
-            --severity ERROR \
-            --severity WARNING \
             --exclude "node_modules" \
             --exclude ".git" \
             --exclude "frontend/dist" \
@@ -79,11 +131,12 @@ jobs:
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────────────────────
-  # JOB 2 — Dependency Vulnerability Scan with Trivy
+  # JOB 4 — Dependency Scan with Trivy
   # ────────────────────────────────────────────────────────────────────────────
   dependency-scan:
-    name: "📦 Dependency Scan — Trivy"
+    name: "📦 Dependency / Vulnerability Scan"
     runs-on: ubuntu-latest
+    needs: detect-stack
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -128,52 +181,12 @@ jobs:
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────────────────────
-  # JOB 3 — Secret Scanning with Gitleaks
-  # ────────────────────────────────────────────────────────────────────────────
-  secret-scan:
-    name: "🔑 Secret Scan — Gitleaks"
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-        continue-on-error: true
-
-      - name: Run Gitleaks (JSON output for report)
-        run: |
-          mkdir -p "${{ env.REPORTS_DIR }}"
-          docker run --rm \
-            -v ${{ github.workspace }}:/path \
-            zricethezav/gitleaks:latest detect \
-            --source=/path \
-            --report-format=json \
-            --report-path=/path/"${{ env.REPORTS_DIR }}"/gitleaks-results.json \
-            --no-git \
-            || true
-        continue-on-error: true
-
-      - name: Upload Gitleaks JSON Result
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: gitleaks-json
-          path: "${{ env.REPORTS_DIR }}/gitleaks-results.json"
-          retention-days: 30
-
-  # ────────────────────────────────────────────────────────────────────────────
-  # JOB 4 — Generate All Reports (Excel + Markdown)
+  # JOB 5 — Generate All Reports & Enforce Gate
   # ────────────────────────────────────────────────────────────────────────────
   generate-reports:
     name: "📊 Generate Security Reports"
     runs-on: ubuntu-latest
-    needs: [sast-semgrep, dependency-scan, secret-scan]
+    needs: [sast-semgrep, dependency-scan]
     if: always()
     steps:
       - name: Checkout Repository
@@ -205,11 +218,17 @@ jobs:
           path: "${{ env.REPORTS_DIR }}"
         continue-on-error: true
 
-      - name: Download Gitleaks Results
-        uses: actions/download-artifact@v4
-        with:
-          name: gitleaks-json
-          path: "${{ env.REPORTS_DIR }}"
+      # Run Gitleaks secret scan here inside the reports job
+      - name: Run Gitleaks (JSON output for report)
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/path \
+            zricethezav/gitleaks:latest detect \
+            --source=/path \
+            --report-format=json \
+            --report-path=/path/"${{ env.REPORTS_DIR }}"/gitleaks-results.json \
+            --no-git \
+            || true
         continue-on-error: true
 
       - name: Generate Security Reports
@@ -240,33 +259,6 @@ jobs:
             echo "## ⚠️ Security Summary not generated" >> $GITHUB_STEP_SUMMARY
           fi
 
-  # ────────────────────────────────────────────────────────────────────────────
-  # JOB 5 — Fail if Critical Vulnerabilities Found
-  # ────────────────────────────────────────────────────────────────────────────
-  gate:
-    name: "🚦 Security Gate — Fail on Critical"
-    runs-on: ubuntu-latest
-    needs: [generate-reports]
-    if: always()
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Dependencies
-        run: pip install -r scripts/requirements-security.txt
-
-      - name: Download Reports
-        uses: actions/download-artifact@v4
-        with:
-          name: security-reports
-          path: "${{ env.REPORTS_DIR }}"
-        continue-on-error: true
-
-      - name: Check for Critical Findings
+      - name: Run Security Gate Check
         run: |
           python scripts/security_gate.py --reports "${{ env.REPORTS_DIR }}"
