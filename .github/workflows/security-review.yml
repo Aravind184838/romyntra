@@ -48,32 +48,42 @@ jobs:
           echo "────────────────────────────────────────"
 
   # ────────────────────────────────────────────────────────────────────────────
-  # JOB 2 — Security Objectives & Scope
+  # JOB 2 — Secret Detection with Gitleaks
   # ────────────────────────────────────────────────────────────────────────────
-  security-objectives:
-    name: "📝 Security Objectives & Scope"
+  secret-detection:
+    name: "🔑 Secret Detection - Gitleaks"
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Define Security Scope
+      - name: Run Gitleaks (JSON output for report)
         run: |
-          echo "════════════════════════════════════════════════"
-          echo "  📝 ROMYNTRA SECURITY OBJECTIVES & SCOPE"
-          echo "════════════════════════════════════════════════"
-          echo "  SAST Scope      : backend/, frontend/src/"
-          echo "  Dependency Scope: package.json, package-lock.json"
-          echo "  Threat Profile  : OWASP Top 10 Web Application Risks"
-          echo "  Compliance      : OWASP ASVS Level 1 Checklist"
-          echo "════════════════════════════════════════════════"
+          mkdir -p "${{ env.REPORTS_DIR }}"
+          docker run --rm \
+            -v ${{ github.workspace }}:/path \
+            zricethezav/gitleaks:latest detect \
+            --source=/path \
+            --report-format=json \
+            --report-path=/path/"${{ env.REPORTS_DIR }}"/gitleaks-results.json \
+            --no-git \
+            || true
+
+      - name: Upload Gitleaks JSON Result
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gitleaks-json
+          path: "${{ env.REPORTS_DIR }}/gitleaks-results.json"
+          retention-days: 30
 
   # ────────────────────────────────────────────────────────────────────────────
   # JOB 3 — SAST with Semgrep
   # ────────────────────────────────────────────────────────────────────────────
   sast-semgrep:
-    name: "🛠️ SAST - Semgrep"
+    name: "🔍 SAST - Semgrep"
     runs-on: ubuntu-latest
     needs: detect-stack
     steps:
@@ -186,7 +196,7 @@ jobs:
   generate-reports:
     name: "📊 Generate Security Reports"
     runs-on: ubuntu-latest
-    needs: [sast-semgrep, dependency-scan]
+    needs: [sast-semgrep, dependency-scan, secret-detection]
     if: always()
     steps:
       - name: Checkout Repository
@@ -218,17 +228,11 @@ jobs:
           path: "${{ env.REPORTS_DIR }}"
         continue-on-error: true
 
-      # Run Gitleaks secret scan here inside the reports job
-      - name: Run Gitleaks (JSON output for report)
-        run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:/path \
-            zricethezav/gitleaks:latest detect \
-            --source=/path \
-            --report-format=json \
-            --report-path=/path/"${{ env.REPORTS_DIR }}"/gitleaks-results.json \
-            --no-git \
-            || true
+      - name: Download Gitleaks Results
+        uses: actions/download-artifact@v4
+        with:
+          name: gitleaks-json
+          path: "${{ env.REPORTS_DIR }}"
         continue-on-error: true
 
       - name: Generate Security Reports
