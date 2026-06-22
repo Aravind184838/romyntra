@@ -57,6 +57,17 @@ def navigate(driver, base_url, path=""):
     time.sleep(0.5)
 
 
+def get_hash_path(driver):
+    """Extracts the hash part of the URL (e.g., '/discover' from 'http://localhost:5173/#/discover')."""
+    url = driver.current_url
+    if "#" in url:
+        hash_part = url.split("#", 1)[1]
+        path = hash_part.split("?", 1)[0]
+        if not path:
+            return "/"
+        return path if path.startswith("/") else "/" + path
+    return "/"
+
 
 # ── Page-level helpers ──────────────────────────────────────────────────────
 
@@ -85,14 +96,16 @@ def do_signup_step1(driver, name, email, password):
     fill(driver, By.ID, "signup-password", password)
     fill(driver, By.XPATH, "//input[@placeholder='Repeat password']", password)
     click(driver, By.ID, "signup-next")
-    time.sleep(0.5)
+    # Wait for Step 2 element to be visible
+    wait_for(driver, By.ID, "signup-phone")
 
 
 def do_signup_step2(driver, phone, dob):
     fill(driver, By.ID, "signup-phone", phone)
     fill(driver, By.ID, "signup-dob",   dob)
     click(driver, By.ID, "signup-next")
-    time.sleep(0.5)
+    # Wait for Step 3 element to be visible
+    wait_for(driver, By.ID, "signup-terms")
 
 
 def do_signup_step3(driver):

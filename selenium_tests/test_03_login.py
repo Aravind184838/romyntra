@@ -84,7 +84,7 @@ class TestLoginPage:
     def test_signup_link_redirects(self, driver, base_url):
         """'Create account' link on login page should go to /signup."""
         navigate(driver, base_url, "/login")
-        link = driver.find_element(By.XPATH, "//a[@href='/signup']")
+        link = driver.find_element(By.XPATH, "//a[contains(@href, 'signup')]")
         link.click()
         time.sleep(1)
         assert "/signup" in driver.current_url, \

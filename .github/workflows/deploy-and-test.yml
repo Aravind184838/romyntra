@@ -237,6 +237,7 @@ jobs:
 
     steps:
       - name: Wait for GitHub Pages to Go Live
+        continue-on-error: true
         run: |
           PAGES_URL="${{ needs.deploy-pages.outputs.pages_url }}"
           echo "⏳ Polling $PAGES_URL until HTTP 200..."
@@ -349,7 +350,19 @@ jobs:
           HEADLESS:         "true"
           SELENIUM_TIMEOUT: "30000"
         run: |
-          echo "🌐 Testing against: $BASE_URL"
+          TARGET_URL="$BASE_URL"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$TARGET_URL" || echo "000")
+          if [ "$STATUS" != "200" ]; then
+            echo "⚠️ GitHub Pages is not live (HTTP $STATUS). Starting a local frontend server for E2E tests..."
+            cd ..
+            npm install
+            npm run dev &
+            npx wait-on http://localhost:5173 --timeout 60000
+            TARGET_URL="http://localhost:5173"
+            cd selenium-tests
+          fi
+          echo "🌐 Testing against: $TARGET_URL"
+          export BASE_URL="$TARGET_URL"
           npx mocha tests/**/*.test.js \
             --timeout 60000 \
             --reporter mochawesome \

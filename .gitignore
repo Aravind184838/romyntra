@@ -11,6 +11,8 @@ __pycache__/
 *.pyc
 reports/
 *.txt
+!requirements.txt
+!appium_tests/requirements.txt
 
 # Appium E2E CI output
 gh-pages-reports/

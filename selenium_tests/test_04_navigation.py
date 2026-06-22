@@ -6,7 +6,7 @@ import requests
 import random
 import pytest
 from selenium.webdriver.common.by import By
-from helpers import navigate, wait_for, do_login
+from helpers import navigate, wait_for, do_login, get_hash_path
 
 
 # ── Helper: register + login programmatically ──────────────────────────────
@@ -44,29 +44,31 @@ class TestNavigation:
         # Clear stored token
         driver.get(base_url)
         driver.execute_script("localStorage.removeItem('romyntra_token');")
+        driver.refresh()
         navigate(driver, base_url, "/discover")
         time.sleep(1.5)
-        current = driver.current_url
-        assert "/discover" not in current or "/login" in current or "/" == current.rstrip("/").split(base_url)[-1], \
-            f"Protected route not redirected. URL={current}"
+        hash_path = get_hash_path(driver)
+        assert hash_path != "/discover", f"Expected redirect, got path: {hash_path}"
 
     def test_unauthenticated_redirect_profile(self, driver, base_url):
         """Accessing /profile without a token should redirect."""
         driver.get(base_url)
         driver.execute_script("localStorage.removeItem('romyntra_token');")
+        driver.refresh()
         navigate(driver, base_url, "/profile")
         time.sleep(1.5)
-        assert "/profile" not in driver.current_url or "/login" in driver.current_url, \
-            f"Protected /profile accessible without auth. URL={driver.current_url}"
+        hash_path = get_hash_path(driver)
+        assert hash_path != "/profile", f"Expected redirect from /profile, got: {hash_path}"
 
     def test_unauthenticated_redirect_matches(self, driver, base_url):
         """Accessing /matches without a token should redirect."""
         driver.get(base_url)
         driver.execute_script("localStorage.removeItem('romyntra_token');")
+        driver.refresh()
         navigate(driver, base_url, "/matches")
         time.sleep(1.5)
-        assert "/matches" not in driver.current_url or "/login" in driver.current_url, \
-            f"Protected /matches accessible without auth. URL={driver.current_url}"
+        hash_path = get_hash_path(driver)
+        assert hash_path != "/matches", f"Expected redirect from /matches, got: {hash_path}"
 
     def test_authenticated_can_access_discover(self, driver, base_url):
         """A logged-in user should be able to reach /discover."""
@@ -76,48 +78,51 @@ class TestNavigation:
         navigate(driver, base_url, "/discover")
         time.sleep(1.5)
         # Should be on /discover (or setup-profile for new users without complete profile)
-        current = driver.current_url
-        assert "/discover" in current or "/setup-profile" in current, \
-            f"Authenticated user couldn't reach /discover. URL={current}"
+        hash_path = get_hash_path(driver)
+        assert hash_path in ("/discover", "/setup-profile"), \
+            f"Authenticated user couldn't reach /discover. Hash path={hash_path}"
 
     def test_authenticated_can_access_matches(self, driver, base_url):
         """A logged-in user should be able to reach /matches."""
         # Reuse existing auth state
         navigate(driver, base_url, "/matches")
         time.sleep(1.5)
-        current = driver.current_url
-        assert "/matches" in current or "/setup-profile" in current or "/login" in current, \
-            f"Unexpected URL: {current}"
+        hash_path = get_hash_path(driver)
+        assert hash_path in ("/matches", "/setup-profile", "/login"), \
+            f"Unexpected hash path: {hash_path}"
 
     def test_logout_clears_session(self, driver, base_url):
         """After logout, user should not be able to access protected routes."""
         # Clear token directly
         driver.execute_script("localStorage.removeItem('romyntra_token');")
+        driver.refresh()
         navigate(driver, base_url, "/discover")
         time.sleep(1.5)
-        assert "/discover" not in driver.current_url, \
+        hash_path = get_hash_path(driver)
+        assert hash_path != "/discover", \
             "User can still access /discover after logout"
 
     def test_unknown_route_redirects_to_splash(self, driver, base_url):
         """Unknown routes should redirect to splash (/)."""
         navigate(driver, base_url, "/this-does-not-exist-12345")
-        time.sleep(1)
-        current = driver.current_url.rstrip("/")
-        assert current == base_url or "/" == current.split(base_url)[-1] or "/login" in current, \
-            f"Unknown route didn't redirect. Got: {current}"
+        time.sleep(1.5)
+        hash_path = get_hash_path(driver)
+        assert hash_path in ("/", "/login"), f"Unknown route didn't redirect. Hash path: {hash_path}"
 
     def test_login_link_from_signup(self, driver, base_url):
         """'Already have an account?' on signup links to /login."""
         navigate(driver, base_url, "/signup")
-        link = driver.find_element(By.XPATH, "//a[@href='/login']")
+        link = driver.find_element(By.XPATH, "//a[contains(@href, 'login')]")
         link.click()
         time.sleep(1)
-        assert "/login" in driver.current_url
+        hash_path = get_hash_path(driver)
+        assert hash_path == "/login", f"Expected /login path, got: {hash_path}"
 
     def test_signup_link_from_login(self, driver, base_url):
         """'Create account' on login links to /signup."""
         navigate(driver, base_url, "/login")
-        link = driver.find_element(By.XPATH, "//a[@href='/signup']")
+        link = driver.find_element(By.XPATH, "//a[contains(@href, 'signup')]")
         link.click()
         time.sleep(1)
-        assert "/signup" in driver.current_url
+        hash_path = get_hash_path(driver)
+        assert hash_path == "/signup", f"Expected /signup path, got: {hash_path}"
