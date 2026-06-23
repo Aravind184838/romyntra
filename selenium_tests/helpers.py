@@ -54,6 +54,7 @@ def navigate(driver, base_url, path=""):
     route = path.lstrip("/")
     url = f"{base}/#{('/' + route) if route else '/'}"
     driver.get(url)
+    driver.refresh()
     time.sleep(0.5)
 
 

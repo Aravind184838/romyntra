@@ -120,7 +120,7 @@ describe('🔐 Login Page', function () {
   // ── 5. Navigation links ───────────────────────────────────────────────────
   it("'Create account' link navigates to /#/signup", async () => {
     await navigateTo(driver, '/login');
-    const link = await driver.findElement(By.xpath("//a[@href='/signup']"));
+    const link = await driver.findElement(By.xpath("//a[contains(@href, 'signup')]"));
     await link.click();
     await driver.sleep(1000);
     const url = await driver.getCurrentUrl();

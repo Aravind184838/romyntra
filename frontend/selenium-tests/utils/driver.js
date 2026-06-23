@@ -57,6 +57,7 @@ async function buildDriver() {
 async function navigateTo(driver, path = '') {
   const url = `${BASE_URL}/#${path}`;
   await driver.get(url);
+  await driver.navigate().refresh();
   await driver.sleep(700);
 }
 
