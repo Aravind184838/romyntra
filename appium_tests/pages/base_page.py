@@ -34,7 +34,16 @@ class BasePage:
     # ── Navigation ────────────────────────────────────────────────────────
 
     def navigate(self, path: str = ""):
-        url = f"{self.base_url}{path}"
+        """Navigate to a HashRouter route.
+
+        HashRouter serves all routes via the hash fragment:
+          navigate("/login")  →  {base_url}/#/login
+          navigate("/signup") →  {base_url}/#/signup
+          navigate("")        →  {base_url}/#/
+        """
+        route = path.strip("/")
+        hash_path = f"/{route}" if route else "/"
+        url = f"{self.base_url}/#{hash_path}"
         logger.info(f"  → navigate to {url}")
         self.driver.get(url)
         time.sleep(0.6)

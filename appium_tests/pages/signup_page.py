@@ -25,7 +25,7 @@ class SignupPage(BasePage):
     SUBMIT_BUTTON   = (By.ID, "signup-submit")
 
     # ── Login Link ────────────────────────────────────────────────────────
-    LOGIN_LINK      = (By.XPATH, "//a[@href='/login']")
+    LOGIN_LINK      = (By.XPATH, "//a[contains(@href, 'login')]")
 
     # ── Actions ───────────────────────────────────────────────────────────
 

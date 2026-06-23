@@ -23,10 +23,10 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v4
 
     - name: Use Node.js
-      uses: actions/setup-node@v5
+      uses: actions/setup-node@v4
       with:
         node-version: '22.x'
         
@@ -52,6 +52,9 @@ jobs:
       run: |
         npm run dev -- --host 127.0.0.1 &
         npx wait-on http://127.0.0.1:5173
+
+    - name: Set up Chrome
+      uses: browser-actions/setup-chrome@v1
 
     - name: Set up Python
       uses: actions/setup-python@v5

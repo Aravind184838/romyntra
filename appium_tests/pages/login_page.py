@@ -15,7 +15,7 @@ class LoginPage(BasePage):
     PHONE_TAB       = (By.XPATH, "//button[contains(text(),'Phone')]")
     EMAIL_TAB       = (By.XPATH, "//button[contains(text(),'Email')]")
     PHONE_INPUT     = (By.ID, "login-phone")
-    SIGNUP_LINK     = (By.XPATH, "//a[@href='/signup']")
+    SIGNUP_LINK     = (By.XPATH, "//a[contains(@href, 'signup')]")
     PW_TOGGLE       = (By.XPATH, "//input[@id='login-password']/following-sibling::button")
 
     # ── Actions ───────────────────────────────────────────────────────────

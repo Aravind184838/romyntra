@@ -83,7 +83,7 @@ describe('🧭 Navigation & Routing', function () {
 
   it("'Create account' link on login → navigates to /#/signup", async () => {
     await navigateTo(driver, '/login');
-    const link = await driver.findElement(By.xpath("//a[@href='/signup']"));
+    const link = await driver.findElement(By.xpath("//a[contains(@href, 'signup')]"));
     await link.click();
     await driver.sleep(1000);
     const url = await driver.getCurrentUrl();
@@ -92,7 +92,7 @@ describe('🧭 Navigation & Routing', function () {
 
   it("'Already have account' link on signup → navigates to /#/login", async () => {
     await navigateTo(driver, '/signup');
-    const link = await driver.findElement(By.xpath("//a[@href='/login']"));
+    const link = await driver.findElement(By.xpath("//a[contains(@href, 'login')]"));
     await link.click();
     await driver.sleep(1000);
     const url = await driver.getCurrentUrl();
