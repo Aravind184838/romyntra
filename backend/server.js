@@ -108,11 +108,6 @@ app.use('/api/swipe', swipeLimiter, swipeRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/chat', messageLimiter, chatRoutes);
 app.use('/api/admin', exportLimiter, adminRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/swipe', swipeRoutes);
-app.use('/api/matches', matchRoutes);
-app.use('/api/chat', chatRoutes);
-app.use('/api/admin', adminRoutes);
 app.use('/api/reports', reportRoutes);
 
 // Health check

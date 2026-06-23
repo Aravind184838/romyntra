@@ -10,6 +10,9 @@
     "build": "cd ../frontend && npm install && npm run build",
     "seed": "node seeders/seedData.js"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "keywords": [
     "dating",
     "romyntra",
