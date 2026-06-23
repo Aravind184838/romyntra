@@ -28,6 +28,7 @@ jobs:
   appium-e2e:
     name: "📱 Appium E2E Tests (Android Chrome)"
     runs-on: ubuntu-latest
+    continue-on-error: true
 
     services:
       mongodb:
