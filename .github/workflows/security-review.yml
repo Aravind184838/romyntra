@@ -14,6 +14,7 @@ env:
 permissions:
   contents: read
   security-events: write   # required for SARIF upload to GitHub Security tab
+  actions: read            # required for Semgrep to fetch workflow-run info
 
 jobs:
 
@@ -164,7 +165,7 @@ jobs:
 
       - name: Run Trivy Filesystem Scan (JSON)
         continue-on-error: true
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@master
         with:
           scan-type: "fs"
           scan-ref: "."
@@ -177,7 +178,7 @@ jobs:
 
       - name: Run Trivy Filesystem Scan (SARIF)
         continue-on-error: true
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@master
         with:
           scan-type: "fs"
           scan-ref: "."
